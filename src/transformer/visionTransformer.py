@@ -11,10 +11,10 @@ CLS token is a special token, initialised at 0, added to the sequence of image p
 """
 import torch
 import torch.nn as nn
-from patches import Patches
-from transformerBlock import TransformerBlock
+from transformer.patches import Patches
+from transformer.transformerBlock import TransformerBlock
 
-class VisionTransformer:
+class VisionTransformer(nn.Module):
 
     _patches: Patches
     _clsToken: nn.Parameter
