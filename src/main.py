@@ -26,6 +26,7 @@ def main():
     load_dotenv()
 
     DEBUG = os.getenv("DEBUG") == "True"
+    USE_CPU = os.getenv("USE_CPU") == "True"
     if DEBUG:
         print("Debug mode is ON")
         print("PyTorch version:", torch.__version__)
@@ -37,8 +38,12 @@ def main():
         print("GPU détecté :", props.name)
         print("VRAM total :", round(props.total_memory / 1e9, 2), "GB")
     else:
-        raise RuntimeError("GPU not detected. CUDA is not available.")
-        
+        if not USE_CPU:
+            raise RuntimeError("GPU not detected. CUDA is not available.")
+        else:
+            print("No GPU detected. Using CPU as per configuration.")
+            device = torch.device("cpu")
+
     return 0
 
 def verifyAndInstall(package_pip, nom_import=None):
