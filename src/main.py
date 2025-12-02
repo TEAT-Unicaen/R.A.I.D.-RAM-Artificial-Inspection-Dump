@@ -29,14 +29,16 @@ def main():
     if DEBUG:
         print("Debug mode is ON")
         print("PyTorch version:", torch.__version__)
-        if torch.cuda.is_available():
-            print(torch.cuda.get_device_name())
-            print(torch.cuda.get_device_properties(0).total_memory / 1e9, "GB")
-            print("CUDA Version:", torch.version.cuda)
-        else:
-            print("CUDA is not available.")
 
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")
+        props = torch.cuda.get_device_properties(device)
 
+        print("GPU détecté :", props.name)
+        print("VRAM total :", round(props.total_memory / 1e9, 2), "GB")
+    else:
+        raise RuntimeError("GPU not detected. CUDA is not available.")
+        
     return 0
 
 def verifyAndInstall(package_pip, nom_import=None):
@@ -50,13 +52,11 @@ def verifyAndInstall(package_pip, nom_import=None):
     if nom_import is None:
         nom_import = package_pip
 
-    # Check if the module can be found by Python
     spec = importlib.util.find_spec(nom_import)
     
     if spec is None:
         print(f"The module '{nom_import}' is missing. Installing '{package_pip}'...")
         try:
-            # Install the package using pip
             subprocess.check_call([sys.executable, "-m", "pip", "install", package_pip])
             print(f"{package_pip} installed successfully!")
         except subprocess.CalledProcessError:
@@ -65,11 +65,10 @@ def verifyAndInstall(package_pip, nom_import=None):
         pass
 
 if __name__ == "__main__":
-    #Verify and install dependencies
     for package, import_name in CONST_DEPENDENCIES:
         verifyAndInstall(package, import_name)
 
-    #Import after verification
+    # All dep import here (after verification) 
     from dotenv import load_dotenv
 
     raise SystemExit(main())
