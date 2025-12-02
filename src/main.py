@@ -11,6 +11,8 @@ import importlib.util
 import torch
 ####################################
 
+from utils.trainer import trainModel
+
 DEBUG = False
 
 # Tuples list (Name for PIP, Name for IMPORT)
@@ -68,6 +70,8 @@ def verifyAndInstall(package_pip, nom_import=None):
             print(f"Error installing {package_pip}.")
     else:
         pass
+
+    trainModel()
 
 if __name__ == "__main__":
     for package, import_name in CONST_DEPENDENCIES:
