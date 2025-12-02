@@ -1,6 +1,9 @@
 """
 This module is responsible for training the model.
 It includes functions for loading datasets, defining the training loop, and evaluating model performance.
+
+TODO : Add a scheduler for learning rate adjustment -> torch.optim.lr_scheduler ?
+
 """
 
 import torch
