@@ -15,7 +15,7 @@ class Patches(nn.Module):
     _nPatches: int
     _projector: nn.Conv2d
 
-    def __init__(self, imageSize=224, kernelSize=16, inChannels=3, outChannels=768):
+    def __init__(self, imageSize=224, kernelSize=16, inChannels=3, embedDim=768):
         super().__init__()
         self._imageSize = imageSize
         self._patchSize = kernelSize
@@ -26,7 +26,7 @@ class Patches(nn.Module):
         #outChannels : Dimension of the embedding space (numbers of vectors numbers per patch)
         #Kernel : size of the patch
         #Stride : step size for moving the kernel (equal to kernel size for non-overlapping patches)
-        self._projector = nn.Conv2d(inChannels, outChannels, kernel_size=kernelSize, stride=kernelSize)
+        self._projector = nn.Conv2d(inChannels, embedDim, kernel_size=kernelSize, stride=kernelSize)
 
     def forward(self, image):
         #Im!age is an image tensor of shape : [1, 3, 224, 224] (batch_size, inChannels, height, width)
