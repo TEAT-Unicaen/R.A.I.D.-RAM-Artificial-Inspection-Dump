@@ -18,6 +18,9 @@ from transformer.visionTransformer import VisionTransformer
 def trainModel(epochs = 10):
     # Configuration
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    # Metrics
+    total = 0
+    correct = 0
 
     # Load and preprocess dataset
     # point to dataset/train directory
@@ -33,6 +36,7 @@ def trainModel(epochs = 10):
 
     # Create model and optimizer
     model = VisionTransformer().to(device)
+    model.train()
     optimizer = optim.Adam(model.parameters(), lr=0.0003) #Best optimizer for vision transformers ATM
     criterion = nn.CrossEntropyLoss()
 
@@ -51,16 +55,16 @@ def trainModel(epochs = 10):
             loss.backward()
             optimizer.step()
 
-            #Calculate accuracy (optional)
+            #Calculate accuracy
             _, predicted = torch.max(outputs.data, 1)
-            total = labels.size(0)
-            correct = (predicted == labels).sum().item()
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
             accuracy = 100 * correct / total
         
         print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}, Accuracy: {accuracy:.2f}%")
 
-
     print("Training complete.")
+    torch.save(model.state_dict(), "shrekTransformerResult.pth")
 
 
 
