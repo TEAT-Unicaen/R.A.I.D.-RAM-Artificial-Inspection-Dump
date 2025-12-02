@@ -71,7 +71,7 @@ def verifyAndInstall(package_pip, nom_import=None):
     else:
         pass
 
-    trainModel()
+    trainModel(100)
 
 if __name__ == "__main__":
     for package, import_name in CONST_DEPENDENCIES:

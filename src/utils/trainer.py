@@ -50,8 +50,15 @@ def trainModel(epochs = 10):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+            #Calculate accuracy (optional)
+            _, predicted = torch.max(outputs.data, 1)
+            total = labels.size(0)
+            correct = (predicted == labels).sum().item()
+            accuracy = 100 * correct / total
         
-        print(f"Epoch [{epoch+1}/10], Loss: {loss.item():.4f}")
+        print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}, Accuracy: {accuracy:.2f}%")
+
 
     print("Training complete.")
 
