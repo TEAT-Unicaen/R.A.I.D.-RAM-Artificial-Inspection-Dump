@@ -32,12 +32,12 @@ def trainModel(epochs = 10):
         dataset = ipp.preprocessImagesDataset(dataset_dir)
     except TypeError:
         return RuntimeError("preprocessImagesDataset failed due to a bad dataset path.")
-    dataLoader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
+    dataLoader = torch.utils.data.DataLoader(dataset, batch_size=128, pin_memory=True ,shuffle=True)
 
     # Create model and optimizer
-    model = VisionTransformer().to(device)
+    model = VisionTransformer(embedDim=256, dropout=0.1).to(device)
     model.train()
-    optimizer = optim.Adam(model.parameters(), lr=0.0003) #Best optimizer for vision transformers ATM
+    optimizer = optim.Adam(model.parameters(), lr=0.0006) #Best optimizer for vision transformers ATM
     criterion = nn.CrossEntropyLoss()
 
     # Training loop
