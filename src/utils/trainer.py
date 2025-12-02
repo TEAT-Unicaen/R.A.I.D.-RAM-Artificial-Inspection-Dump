@@ -6,12 +6,12 @@ TODO : Add a scheduler for learning rate adjustment -> torch.optim.lr_scheduler 
 
 """
 
+import os
 import torch
 import torch.optim as optim
 import torch.nn as nn
-from torchvision import datasets, transforms
 
-import imagePreprocessor
+import utils.imagePreprocessor as ipp
 from transformer.visionTransformer import VisionTransformer
 
 
@@ -20,7 +20,15 @@ def trainModel(epochs = 10):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Load and preprocess dataset
-    dataset = imagePreprocessor.preprocessImagesDataset("../dataset/train")
+    # point to dataset/train directory
+    dataset_dir = os.path.join(os.getcwd(), "dataset", "train")
+    if not os.path.isdir(dataset_dir):
+        raise FileNotFoundError(f"Dataset directory not found: {dataset_dir}")
+
+    try:
+        dataset = ipp.preprocessImagesDataset(dataset_dir)
+    except TypeError:
+        return RuntimeError("preprocessImagesDataset failed due to a bad dataset path.")
     dataLoader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
 
     # Create model and optimizer

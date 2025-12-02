@@ -4,7 +4,7 @@ This module contains classes and functions to define and manage transformer-base
 """
 
 import torch.nn as nn
-from .mlp import MLP
+from transformer.mlp import MLP
 
 class TransformerBlock(nn.Module):
 
