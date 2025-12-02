@@ -39,6 +39,7 @@ def main():
 
         print("GPU détecté :", props.name)
         print("VRAM total :", round(props.total_memory / 1e9, 2), "GB")
+
     else:
         if not USE_CPU:
             raise RuntimeError("GPU not detected. CUDA is not available.")
@@ -46,6 +47,8 @@ def main():
             print("No GPU detected. Using CPU as per configuration.")
             device = torch.device("cpu")
 
+    trainModel(200)
+    
     return 0
 
 def verifyAndInstall(package_pip, nom_import=None):
@@ -71,8 +74,6 @@ def verifyAndInstall(package_pip, nom_import=None):
     else:
         pass
 
-    trainModel(100)
-
 if __name__ == "__main__":
     for package, import_name in CONST_DEPENDENCIES:
         verifyAndInstall(package, import_name)
@@ -81,6 +82,3 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
 
     raise SystemExit(main())
-
-
-
