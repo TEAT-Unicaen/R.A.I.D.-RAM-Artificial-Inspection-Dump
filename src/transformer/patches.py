@@ -38,6 +38,3 @@ class Patches(nn.Module):
         image = image.transpose(1, 2)
         #Final shape : [1, n_patches, embedding_dim]
         return image
-
-    
-

@@ -4,7 +4,6 @@ Centralizes all hyperparameters and training settings.
 """
 
 import configparser
-import os
 
 class TrainingConfig:
     """Training configuration class"""
