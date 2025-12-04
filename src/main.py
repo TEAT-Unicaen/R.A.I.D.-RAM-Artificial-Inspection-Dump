@@ -4,6 +4,7 @@ Entry point for RAID project.
 """
 
 ####Only standard library imports###
+import configparser
 import os
 import subprocess
 import sys
@@ -12,26 +13,27 @@ import torch
 ####################################
 
 from utils.trainer import trainModel
+from utils.config import TrainingConfig
+import time
 
 DEBUG = False
 
 # Tuples list (Name for PIP, Name for IMPORT)
 # If import name is the same as package name, use None for the second argument
-CONST_DEPENDENCIES = [
-    ("python-dotenv", "dotenv"), 
-]
+CONST_DEPENDENCIES = []
 
 def main():
     print("R.A.I.D. Project Entry Point")
     
-    # Load environment variables from .env file
-    load_dotenv()
 
-    DEBUG = os.getenv("DEBUG") == "True"
-    USE_CPU = os.getenv("USE_CPU") == "True"
-    if DEBUG:
+    # Load training configuration
+    config = TrainingConfig('config.cfg')
+
+    
+    if config.debug:
         print("Debug mode is ON")
         print("PyTorch version:", torch.__version__)
+        print("Configuration:", config)
 
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
@@ -41,13 +43,18 @@ def main():
         print("VRAM total :", round(props.total_memory / 1e9, 2), "GB")
 
     else:
-        if not USE_CPU:
+        if not config.use_cpu:
             raise RuntimeError("GPU not detected. CUDA is not available.")
         else:
             print("No GPU detected. Using CPU as per configuration.")
             device = torch.device("cpu")
 
-    trainModel(200)
+    if config.debug:
+        start_time = time.time()
+    trainModel(config)
+    if config.debug:
+        end_time = time.time()
+        print(f"Training completed in {end_time - start_time:.2f} seconds.")
     
     return 0
 
@@ -77,8 +84,5 @@ def verifyAndInstall(package_pip, nom_import=None):
 if __name__ == "__main__":
     for package, import_name in CONST_DEPENDENCIES:
         verifyAndInstall(package, import_name)
-
-    # All dep import here (after verification) 
-    from dotenv import load_dotenv
 
     raise SystemExit(main())

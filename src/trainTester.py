@@ -1,23 +1,26 @@
+import configparser
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
 from PIL import Image
 import os
-
 import transformer.visionTransformer as vt
+from utils.config import TrainingConfig
+from utils.modelSelector import list_trained_models, select_model_interactive, get_latest_model
 
-def predict_scratch(image_path, model_path="shrekTransformerResult.pth", debug=False):
+def predict_scratch(image_path, model_path="shrekTransformerResult.pth", config=None):
     # 1. Vérification du fichier
     if not os.path.exists(image_path):
         print(f"Erreur : Impossible de trouver l'image '{image_path}'")
         return
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if debug: print(f"Test du modèle 'From Scratch' sur : {device}")
+    # Lecture des décimaux (Float)
+    device = torch.device("cuda" if torch.cuda.is_available() and not config.use_cpu else "cpu")
+    if config.debug: print(f"Test du modèle 'From Scratch' sur : {device}")
 
     # 2. Architecture (Identique à l'entraînement)
     # On crée un ViT vide
-    model = vt.VisionTransformer(embedDim=256, dropout=0.1)
+    model = vt.VisionTransformer(embedDim=config.embed_dim, dropout=config.dropout, depth=config.depth, heads=config.heads)
 
     # 3. Chargement des poids
     if not os.path.exists(model_path):
@@ -29,7 +32,7 @@ def predict_scratch(image_path, model_path="shrekTransformerResult.pth", debug=F
     except Exception as e:
         print(f"Erreur lors du chargement des poids : {e}")
         return
- 
+
     model.eval()
     model.to(device)
 
@@ -53,7 +56,7 @@ def predict_scratch(image_path, model_path="shrekTransformerResult.pth", debug=F
     # Ordre alphabétique des dossiers
     classes = ['Pas Shrek', 'Shrek']
     
-    if debug:
+    if config.debug:
         print(f"\n--- RÉSULTAT ---")
         print(f"Image     : {image_path}")
         print(f"Verdict   : {classes[predicted.item()]}")
@@ -62,6 +65,29 @@ def predict_scratch(image_path, model_path="shrekTransformerResult.pth", debug=F
     return predicted.item(), score.item()*100
 
 if __name__ == "__main__":
+    
+    # Sélection du modèle
+    print("Recherche des modèles disponibles...\n")
+    models = list_trained_models("output")
+    
+    if not models:
+        print("Aucun modèle trouvé. Veuillez d'abord entraîner un modèle.")
+        exit(1)
+    
+    # Sélection interactive
+    model_path, config_path = select_model_interactive(models)
+    
+    if model_path is None:
+        print("Aucun modèle sélectionné. Arrêt.")
+        exit(0)
+    
+    # Charger la configuration du modèle sélectionné
+    if config_path and os.path.exists(config_path):
+        config = TrainingConfig(config_path)
+        print(f"Configuration chargée : {config}\n")
+    else:
+        print("Pas de config trouvée, utilisation de la config par défaut.\n")
+        config = TrainingConfig('config.cfg')
     
     base_dir = "dataset/val"
     classes = ["notShrek", "shrek"]
@@ -84,7 +110,7 @@ if __name__ == "__main__":
             if file.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
                 img_path = os.path.join(folder, file)
 
-                pred, score = predict_scratch(img_path)
+                pred, score = predict_scratch(img_path, model_path=model_path, config=config)
                 if pred is None:
                     continue
 
