@@ -1,7 +1,7 @@
 import os
 import random
 
-def createDump(size_mb: int, fileTypes: list[str], seed: int, filePath: str, failRate = 5, export = True) -> bytearray:
+def createDump(size_mb: int, fileTypes: list[str], seed: int, filePath: str, failRate = 5, export = True, autoReduce = True) -> bytearray:
 
     """
     Dump creator function that simulates loading files into RAM.
@@ -47,6 +47,9 @@ def createDump(size_mb: int, fileTypes: list[str], seed: int, filePath: str, fai
         ram[offset:offset + file_size] = data
         offset += file_size
 
+    if autoReduce:
+        ram = ram[:offset]
+
     if export:
         output = 'ram_dump.bin'
         with open(output, 'wb') as f:
@@ -82,7 +85,7 @@ def loadFilesByType(fileTypes: list[str], filePath: str) -> list[str]:
 if __name__ == "__main__":
     # Example usage
     size_mb = 100  # Size of the dump in MB
-    fileTypes = ['txt']  # File types to include
+    fileTypes = ['txt', 'png']  # File types to include
     seed = 64  # Seed for randomness
     filePath = './data'  # Directory to load files from
     failRate = 5  # Number of allowed failures
