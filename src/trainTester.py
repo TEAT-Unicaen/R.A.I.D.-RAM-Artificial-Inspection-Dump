@@ -2,7 +2,7 @@ import torch
 from torchvision import models, transforms
 from PIL import Image
 import os
-import transformer.visionTransformer as vt
+import transformer.transformer as tr
 from utils.config import TrainingConfig
 from utils.modelSelector import list_trained_models, select_model_interactive, get_latest_model
 
@@ -18,7 +18,7 @@ def predict_scratch(image_path, model_path="shrekTransformerResult.pth", config=
 
     # 2. Architecture (Identique à l'entraînement)
     # On crée un ViT vide
-    model = vt.VisionTransformer(embedDim=config.embed_dim, dropout=config.dropout, depth=config.depth, heads=config.heads)
+    model = tr.Transformer(embedDim=config.embed_dim, dropout=config.dropout, depth=config.depth, heads=config.heads)
 
     # 3. Chargement des poids
     if not os.path.exists(model_path):

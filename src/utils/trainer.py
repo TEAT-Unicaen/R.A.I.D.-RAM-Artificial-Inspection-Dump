@@ -16,10 +16,11 @@ import numpy as np
 
 import utils.imagePreprocessor as ipp
 from utils.config import TrainingConfig
-from transformer.visionTransformer import VisionTransformer
+from transformer.transformer import Transformer
 from torch.cuda.amp import autocast, GradScaler
 from datetime import datetime
 import shutil
+
 def set_seed(seed=42):
     """Set random seeds for reproducibility"""
     random.seed(seed)
@@ -58,7 +59,7 @@ def trainModel(config: TrainingConfig = None):
     dataLoader = torch.utils.data.DataLoader(dataset, batch_size=config.batch_size, pin_memory=True, shuffle=True)
 
     # Create model and optimizer
-    model = VisionTransformer(embedDim=config.embed_dim, dropout=config.dropout, depth=config.depth, heads=config.heads).to(device)
+    model = Transformer(embedDim=config.embed_dim, dropout=config.dropout, depth=config.depth, heads=config.heads).to(device)
     model.train()
     optimizer = optim.Adam(model.parameters(), lr=config.lr) #Best optimizer for vision transformers ATM
     criterion = nn.CrossEntropyLoss()
