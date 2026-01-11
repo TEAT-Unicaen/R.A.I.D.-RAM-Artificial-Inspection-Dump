@@ -266,8 +266,8 @@ if __name__ == "__main__":
         
         print(f"Fichiers sources trouvés : {len(files)}")
 
-        generator = DumpGenerator(size_mb=2, seed=42)
-        ram_bin, metadata = generator.run(files, noise=True, noiseLevel=0.2, balanceMode="size")
+        generator = DumpGenerator(size_mb=20, seed=24)
+        ram_bin, metadata = generator.run(files, noise=True, noiseLevel=0.2, balanceMode="files")
 
         bin_file = os.path.join(output_path, "ram_dump.bin")
         meta_file = os.path.join(output_path, "metadata.json")

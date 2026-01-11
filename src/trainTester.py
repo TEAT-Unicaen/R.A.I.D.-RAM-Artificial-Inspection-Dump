@@ -1,140 +1,220 @@
 import torch
-from torchvision import models, transforms
-from PIL import Image
 import os
+import numpy as np
+import json
 import transformer.transformer as tr
 from utils.config import TrainingConfig
 from utils.modelSelector import list_trained_models, select_model_interactive, get_latest_model
+import utils.dumpPreprocessor as dpp
 
-def predict_scratch(image_path, model_path="shrekTransformerResult.pth", config=None):
-    # 1. Vérification du fichier
-    if not os.path.exists(image_path):
-        print(f"Erreur : Impossible de trouver l'image '{image_path}'")
-        return
+# Label mapping (must match dumpPreprocessor.py)
+LABEL_NAMES = {
+    0: "BINARY_TEXT",
+    1: "BINARY_IMAGE", 
+    2: "BINARY_OTHER",
+    3: "ENCRYPTED",
+    4: "DECODED",
+    5: "BASE64",
+    6: "COMPRESSED",
+    7: "SYSTEM",
+    8: "NOISE"
+}
 
-    # Lecture des décimaux (Float)
+def predict_dump_segment(segment_data: bytes, model, device, config, normalize=True):
+    """
+    Predict the type of a RAM dump segment.
+    
+    Args:
+        segment_data: Raw bytes of the segment
+        model: Loaded transformer model
+        device: torch device
+        config: TrainingConfig
+        normalize: Whether to normalize byte values
+    
+    Returns:
+        (predicted_class_idx, confidence_score, class_name)
+    """
+    # Convert bytes to numpy array
+    data = np.frombuffer(segment_data, dtype=np.uint8).astype(np.float32)
+    
+    if normalize:
+        data = data / 255.0
+    
+    # Pad or truncate to sequence_length
+    if len(data) < config.sequence_length:
+        padded = np.zeros(config.sequence_length, dtype=np.float32)
+        padded[:len(data)] = data
+        data = padded
+    elif len(data) > config.sequence_length:
+        data = data[:config.sequence_length]
+    
+    # Convert to tensor and add batch dimension
+    tensor = torch.from_numpy(data).unsqueeze(0).to(device)
+    
+    # Predict
+    with torch.no_grad():
+        outputs = model(tensor)
+        probs = torch.nn.functional.softmax(outputs, dim=1)
+        score, predicted = torch.max(probs, 1)
+    
+    pred_idx = predicted.item()
+    confidence = score.item() * 100
+    class_name = LABEL_NAMES.get(pred_idx, f"UNKNOWN_{pred_idx}")
+    
+    return pred_idx, confidence, class_name
+
+
+def test_model_on_dump(dump_path: str, metadata_path: str, model_path: str, config: TrainingConfig):
+    """
+    Test the model on a RAM dump file.
+    
+    Args:
+        dump_path: Path to the .bin dump file
+        metadata_path: Path to the metadata .json file
+        model_path: Path to the trained model .pth file
+        config: Training configuration
+    """
+    # Device setup
     device = torch.device("cuda" if torch.cuda.is_available() and not config.use_cpu else "cpu")
-    if config.debug: print(f"Test du modèle 'From Scratch' sur : {device}")
-
-    # 2. Architecture (Identique à l'entraînement)
-    # On crée un ViT vide
-    model = tr.Transformer(embedDim=config.embed_dim, dropout=config.dropout, depth=config.depth, heads=config.heads)
-
-    # 3. Chargement des poids
+    print(f"Testing on device: {device}")
+    
+    # Load model
+    model = tr.Transformer(
+        sequenceLength=config.sequence_length,
+        kernelSize=config.patch_size,
+        inChannels=1,
+        embedDim=config.embed_dim, 
+        dropout=config.dropout, 
+        depth=config.depth, 
+        heads=config.heads,
+        numClasses=config.num_classes
+    )
+    
     if not os.path.exists(model_path):
-        print(f"Erreur : Le modèle '{model_path}' est introuvable. L'entraînement est-il fini ?")
+        print(f"Error: Model file '{model_path}' not found.")
         return
-        
+    
     try:
         model.load_state_dict(torch.load(model_path, map_location=device), strict=False)
     except Exception as e:
-        print(f"Erreur lors du chargement des poids : {e}")
+        print(f"Error loading model weights: {e}")
         return
-
+    
     model.eval()
     model.to(device)
-
-    # 4. Prétraitement (DOIT MATCHER L'ENTRAÎNEMENT)
-    transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-    ])
     
-    # Gestion des images PNG (transparence) ou N&B
-    image = Image.open(image_path).convert('RGB')
-    image_tensor = transform(image).unsqueeze(0).to(device)
-
-    # 5. Prédiction
-    with torch.no_grad():
-        outputs = model(image_tensor)
-        probs = torch.nn.functional.softmax(outputs, dim=1)
-        score, predicted = torch.max(probs, 1)
-
-    # Ordre alphabétique des dossiers
-    classes = ['Pas Shrek', 'Shrek']
+    # Load dump data
+    with open(dump_path, 'rb') as f:
+        dump_data = f.read()
     
-    if config.debug:
-        print(f"\n--- RÉSULTAT ---")
-        print(f"Image     : {image_path}")
-        print(f"Verdict   : {classes[predicted.item()]}")
-        print(f"Confiance : {score.item()*100:.2f}%")
-
-    return predicted.item(), score.item()*100
-
-if __name__ == "__main__":
+    with open(metadata_path, 'r', encoding='utf-8') as f:
+        metadata = json.load(f)
     
-    # Sélection du modèle
-    print("Recherche des modèles disponibles...\n")
-    models = list_trained_models("output")
+    # Filter out noise segments
+    segments = [m for m in metadata if m['type'] != 'NOISE']
     
-    if not models:
-        print("Aucun modèle trouvé. Veuillez d'abord entraîner un modèle.")
-        exit(1)
+    print(f"\nTesting {len(segments)} segments from {dump_path}")
+    print("=" * 60)
     
-    # Sélection interactive
-    model_path, config_path = select_model_interactive(models)
-    
-    if model_path is None:
-        print("Aucun modèle sélectionné. Arrêt.")
-        exit(0)
-    
-    # Charger la configuration du modèle sélectionné
-    if config_path and os.path.exists(config_path):
-        config = TrainingConfig(config_path)
-        print(f"Configuration chargée : {config}\n")
-    else:
-        print("Pas de config trouvée, utilisation de la config par défaut.\n")
-        config = TrainingConfig('config.cfg')
-    
-    base_dir = "dataset/val"
-    classes = ["notShrek", "shrek"]
-
+    # Statistics
     total = 0
     correct = 0
-
+    per_class_stats = {name: {'total': 0, 'correct': 0} for name in LABEL_NAMES.values()}
     confidences_all = []
     confidences_correct = []
-
-    for cls_idx, cls_name in enumerate(classes):
-        folder = os.path.join(base_dir, cls_name)
-        if not os.path.isdir(folder):
-            print(f"Dossier introuvable : {folder}")
+    
+    for entry in segments:
+        true_label = entry['type']
+        if true_label not in dpp.LABEL_MAPPING:
             continue
-
-        print(f"\nTest du dossier : {cls_name}\n")
-
-        for file in os.listdir(folder):
-            if file.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
-                img_path = os.path.join(folder, file)
-
-                pred, score = predict_scratch(img_path, model_path=model_path, config=config)
-                if pred is None:
-                    continue
-
-                score_percent = score
-
-                total += 1
-                confidences_all.append(score_percent)
-
-                if pred == cls_idx:
-                    correct += 1
-                    confidences_correct.append(score_percent)
-                    print(f"Correct pour {file} (confiance {score_percent:.2f}%)")
-                else:
-                    print(f"\033[91mFaux pour {file} (prédit {classes[pred]} avec {score_percent:.2f}%)\033[0m")
-
+            
+        true_idx = dpp.LABEL_MAPPING[true_label]
+        
+        # Extract segment
+        start = entry['data_start']
+        end = entry['data_end']
+        segment = dump_data[start:end]
+        
+        # Predict
+        pred_idx, confidence, pred_name = predict_dump_segment(segment, model, device, config)
+        
+        total += 1
+        per_class_stats[true_label]['total'] += 1
+        confidences_all.append(confidence)
+        
+        if pred_idx == true_idx:
+            correct += 1
+            per_class_stats[true_label]['correct'] += 1
+            confidences_correct.append(confidence)
+            if config.debug:
+                print(f"✓ Correct: {true_label} (conf: {confidence:.2f}%)")
+        else:
+            print(f"✗ Wrong: True={true_label}, Pred={pred_name} (conf: {confidence:.2f}%)")
+    
+    # Print summary
+    print("\n" + "=" * 60)
+    print("           MODEL EVALUATION SUMMARY")
+    print("=" * 60)
+    
     if total > 0:
         accuracy = (correct / total) * 100
         avg_conf_global = sum(confidences_all) / len(confidences_all)
         avg_conf_correct = sum(confidences_correct) / len(confidences_correct) if confidences_correct else 0
-
-        print("\n==============================")
-        print("     RÉSUMÉ DU MODÈLE")
-        print("==============================")
-        print(f"Accuracy totale           : {accuracy:.2f}% ({correct}/{total})")
-        print(f"Confiance moyenne globale : {avg_conf_global:.2f}%")
-        print(f"Confiance moyenne correcte: {avg_conf_correct:.2f}%")
-        print("==============================\n")
+        
+        print(f"\nOverall Accuracy: {accuracy:.2f}% ({correct}/{total})")
+        print(f"Average Confidence (all): {avg_conf_global:.2f}%")
+        print(f"Average Confidence (correct): {avg_conf_correct:.2f}%")
+        
+        print("\nPer-class Accuracy:")
+        print("-" * 40)
+        for class_name, stats in per_class_stats.items():
+            if stats['total'] > 0:
+                class_acc = (stats['correct'] / stats['total']) * 100
+                print(f"  {class_name:15}: {class_acc:.1f}% ({stats['correct']}/{stats['total']})")
     else:
-        print("\nAucune image trouvée.")
+        print("No segments found for evaluation.")
+    
+    print("=" * 60)
+
+
+if __name__ == "__main__":
+    
+    # Model selection
+    print("Searching for trained models...\n")
+    models_found = list_trained_models("output")
+    
+    if not models_found:
+        print("No trained models found. Please train a model first.")
+        exit(1)
+    
+    # Interactive selection
+    model_path, config_path = select_model_interactive(models_found)
+    
+    if model_path is None:
+        print("No model selected. Exiting.")
+        exit(0)
+    
+    # Load model configuration
+    if config_path and os.path.exists(config_path):
+        config = TrainingConfig(config_path)
+        print(f"Configuration loaded: {config}\n")
+    else:
+        print("No config found, using default config.\n")
+        config = TrainingConfig('config.cfg')
+    
+    # Default dump location
+    dump_dir = config.data_dir if hasattr(config, 'data_dir') else "output"
+    dump_path = os.path.join(dump_dir, "ram_dump.bin")
+    metadata_path = os.path.join(dump_dir, "metadata.json")
+    
+    if not os.path.exists(dump_path):
+        print(f"Error: Dump file not found at {dump_path}")
+        print("Please generate a dump first using dataSetGenerator.py")
+        exit(1)
+    
+    if not os.path.exists(metadata_path):
+        print(f"Error: Metadata file not found at {metadata_path}")
+        exit(1)
+    
+    # Run evaluation
+    test_model_on_dump(dump_path, metadata_path, model_path, config)

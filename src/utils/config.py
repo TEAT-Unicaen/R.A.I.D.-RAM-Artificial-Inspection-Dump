@@ -31,9 +31,18 @@ class TrainingConfig:
         self.depth = config['model'].getint('depth', fallback=6)
         self.heads = config['model'].getint('heads', fallback=8)
         self.dropout = config['model'].getfloat('dropout', fallback=0.1)
+        
+        # RAM Dump specific settings
+        self.sequence_length = config['data'].getint('sequence_length', fallback=8192) if config.has_section('data') else 8192
+        self.patch_size = config['data'].getint('patch_size', fallback=256) if config.has_section('data') else 256
+        self.num_classes = config['data'].getint('num_classes', fallback=9) if config.has_section('data') else 9
+        self.exclude_noise = config['data'].getboolean('exclude_noise', fallback=True) if config.has_section('data') else True
+        self.data_dir = config['data'].get('data_dir', fallback='output') if config.has_section('data') else 'output'
 
     def __repr__(self):
         """String representation of the configuration"""
         return (f"TrainingConfig(seed={self.seed}, batch_size={self.batch_size}, "
                 f"embed_dim={self.embed_dim}, depth={self.depth}, heads={self.heads}, "
-                f"dropout={self.dropout}, lr={self.lr}, epochs={self.epochs})")
+                f"dropout={self.dropout}, lr={self.lr}, epochs={self.epochs}, "
+                f"sequence_length={self.sequence_length}, patch_size={self.patch_size}, "
+                f"num_classes={self.num_classes})")

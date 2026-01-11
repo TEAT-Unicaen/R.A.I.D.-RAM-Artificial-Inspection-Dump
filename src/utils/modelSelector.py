@@ -25,7 +25,15 @@ def list_trained_models(output_dir="output"):
     
     for idx, folder in enumerate(folders, 1):
         folder_path = os.path.join(output_dir, folder)
-        model_path = os.path.join(folder_path, "shrekTransformerResult.pth")
+        
+        # Check for both old and new model file names
+        model_path = os.path.join(folder_path, "ramDumpTransformer.pth")
+        if not os.path.exists(model_path):
+            print('Modèle non trouvé sous "ramDumpTransformer.pth", vérification de "model.pth"...')
+            model_path = os.path.join(folder_path, "model.pth")
+            if not os.path.exists(model_path):
+                continue  # Skip if no model file found
+        
         config_path = os.path.join(folder_path, "config.cfg")
         
         if os.path.exists(model_path):
