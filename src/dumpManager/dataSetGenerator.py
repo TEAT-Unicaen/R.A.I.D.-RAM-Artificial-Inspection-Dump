@@ -164,7 +164,6 @@ class MemoryLayout:
             self.offset += gap
 
 class DumpGenerator:
-
     def __init__(self, size_mb: int, seed: int):
         self.totalBytes= size_mb * 1024 * 1024
         self.mem = MemoryLayout(self.totalBytes)
