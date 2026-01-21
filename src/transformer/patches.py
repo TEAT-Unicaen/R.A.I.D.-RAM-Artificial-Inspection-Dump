@@ -4,7 +4,6 @@ Processes sequential binary data (RAM dumps) and converts it into patches for tr
 
 """
 
-import torch
 import torch.nn as nn
 
 class Patches(nn.Module):

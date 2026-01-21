@@ -4,7 +4,7 @@ import numpy as np
 import json
 import transformer.transformer as tr
 from utils.config import TrainingConfig
-from utils.modelSelector import list_trained_models, select_model_interactive, get_latest_model
+from utils.modelSelector import list_trained_models, select_model_interactive
 import utils.dumpPreprocessor as dpp
 
 # Label mapping (must match dumpPreprocessor.py)
