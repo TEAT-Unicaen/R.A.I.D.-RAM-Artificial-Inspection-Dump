@@ -1,86 +1,78 @@
-#!/usr/bin/env python3
-"""
-Entry point for RAID project.
-"""
-
-####Only standard library imports###
-import subprocess
-import sys
-import importlib.util
 import torch
-####################################
+import torch.nn as nn
+from torch.utils.data import DataLoader
+import sys
 
-from utils.trainer import trainModel
-from utils.config import TrainingConfig
-import time
+# Tes imports personnalisés
+from dumpManager.RamDumpDataset import RamDumpDataset
+from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransformerClassifier
+import config as cfg
 
-DEBUG = False
-
-# Tuples list (Name for PIP, Name for IMPORT)
-# If import name is the same as package name, use None for the second argument
-CONST_DEPENDENCIES = []
-
-def main():
-    print("R.A.I.D. Project Entry Point")
-    
-
-    # Load training configuration
-    config = TrainingConfig('config.cfg')
-
-    
-    if config.debug:
-        print("Debug mode is ON")
-        print("PyTorch version:", torch.__version__)
-        print("Configuration:", config)
-
-    if torch.cuda.is_available():
-        device = torch.device("cuda:0")
-        props = torch.cuda.get_device_properties(device)
-
-        print("GPU détecté :", props.name)
-        print("VRAM total :", round(props.total_memory / 1e9, 2), "GB")
-
+def evaluate():
+    if not torch.cuda.is_available():
+        print("Aucun GPU détécté, évaluation sur CPU.")
+        device = torch.device("cpu")
     else:
-        if not config.use_cpu:
-            raise RuntimeError("GPU not detected. CUDA is not available.")
-        else:
-            print("No GPU detected. Using CPU as per configuration.")
-            device = torch.device("cpu")
+        device = torch.device("cuda")
+        print(f"--- Évaluation sur {device} ---")
 
-    if config.debug:
-        start_time = time.time()
-    trainModel(config)
-    if config.debug:
-        end_time = time.time()
-        print(f"Training completed in {end_time - start_time:.2f} seconds.")
+    print("Construction du modèle...")
+
+    model = BytesTransformerClassifier(
+        dim_model=128, num_heads=4, num_layers=2
+    )
     
-    return 0
+    model.to(device)
 
-def verifyAndInstall(package_pip, nom_import=None):
-    """
-    Verify if a Python module is installed, and install it via pip if not.
-    Args:
-        package_pip (str): The name of the package to install via pip.
-        nom_import (str, optional): The name of the module to import. 
-                                    If None, uses package_pip as the import name.
-    """
-    if nom_import is None:
-        nom_import = package_pip
+    try:
+        model.load_state_dict(torch.load(cfg.MODEL_PATH, map_location=device))
+        print(f"Poids chargés avec succès depuis : {cfg.MODEL_PATH}")
+    except FileNotFoundError:
+        print(f"ERREUR CRITIQUE : Le fichier modèle '{cfg.MODEL_PATH}' est introuvable.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERREUR lors du chargement des poids : {e}")
+        sys.exit(1)
 
-    spec = importlib.util.find_spec(nom_import)
+    model.eval()
+
+    print("Chargement du Dataset...")
+    test_dataset = RamDumpDataset(
+        bin_path=cfg.BIN_PATH, 
+        meta_path=cfg.META_PATH, 
+        chunk_size=512
+    )
+
+    test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=0)
+    total_batches = len(test_loader)
+    print(f"Nombre d'échantillons à tester : {len(test_dataset)} (sur {total_batches} batchs)")
+
+
+    print("Démarrage de l'analyse...")
+    total, correct = 0, 0
     
-    if spec is None:
-        print(f"The module '{nom_import}' is missing. Installing '{package_pip}'...")
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", package_pip])
-            print(f"{package_pip} installed successfully!")
-        except subprocess.CalledProcessError:
-            print(f"Error installing {package_pip}.")
-    else:
-        pass
+    for batch_idx, (data, labels) in enumerate(test_loader):
+        data, labels = data.to(device), labels.to(device)
+        
+        with torch.no_grad():
+            outputs = model(data)
+            
+            probs = torch.sigmoid(outputs).squeeze()
+            
+            predictions = (probs > 0.5).float()
+            
+            correct_in_batch = (predictions == labels.float()).sum().item()
+            
+            total += labels.size(0)
+            correct += correct_in_batch
+
+            prob_sample = probs[0].item() if probs.dim() > 0 else probs.item()
+            rep_ia = "Chiffré" if prob_sample > 0.5 else "Clair"
+            vrai_rep = "Chiffré" if labels[0] == 1 else "Clair"
+            
+            status = "✅" if rep_ia == vrai_rep else "❌"
+
+            print(f'Batch {batch_idx+1}/{total_batches} | : {rep_ia} : {vrai_rep} {status}')
 
 if __name__ == "__main__":
-    for package, import_name in CONST_DEPENDENCIES:
-        verifyAndInstall(package, import_name)
-
-    raise SystemExit(main())
+    evaluate()
