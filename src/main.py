@@ -43,36 +43,48 @@ def evaluate():
         chunk_size=512
     )
 
-    test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=0)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=0)
     total_batches = len(test_loader)
     print(f"Nombre d'échantillons à tester : {len(test_dataset)} (sur {total_batches} batchs)")
 
-
     print("Démarrage de l'analyse...")
     total, correct = 0, 0
+    errorType = {}
     
     for batch_idx, (data, labels) in enumerate(test_loader):
         data, labels = data.to(device), labels.to(device)
         
         with torch.no_grad():
             outputs = model(data)
-            
             probs = torch.sigmoid(outputs).squeeze()
-            
             predictions = (probs > 0.5).float()
             
             correct_in_batch = (predictions == labels.float()).sum().item()
-            
             total += labels.size(0)
             correct += correct_in_batch
 
-            prob_sample = probs[0].item() if probs.dim() > 0 else probs.item()
-            rep_ia = "Chiffré" if prob_sample > 0.5 else "Clair"
-            vrai_rep = "Chiffré" if labels[0] == 1 else "Clair"
-            
-            status = "✅" if rep_ia == vrai_rep else "❌"
+            for i in range(len(labels)):
+                pred = predictions[i].item()
+                target = labels[i].item()
+                
+                if pred != target:
+                    global_idx = batch_idx * test_loader.batch_size + i
+                    offset_erreur, _ = test_dataset.samples[global_idx] #metadata file
+                    
+                    type_reel = "unknown"
+                    for entry in test_dataset.metadata:
+                        if entry['data_start'] <= offset_erreur < entry['data_end']:
+                            type_reel = entry['type']
+                            break
+                    
+                    #print(f"[ERROR] batch {batch_idx+1} ({i}) | Real type: {type_reel} | Predicted type: {'crypted' if pred == 1 else 'clear'}")
+                    errorType[type_reel] = errorType.get(type_reel, 0) + 1
 
-            print(f'Batch {batch_idx+1}/{total_batches} | : {rep_ia} : {vrai_rep} {status}')
+    accuracy = correct / total if total > 0 else 0
+    print("\n--- Détails des erreurs par type de données ---")
+    for data_type, count in errorType.items():
+        print(f"Type: {data_type} | Erreurs: {count}")
+    print(f"\n--- Évaluation terminée ---\nExactitude totale : {accuracy:.2%} ({correct}/{total})")
 
 if __name__ == "__main__":
     evaluate()
