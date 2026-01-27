@@ -173,7 +173,7 @@ class DumpGenerator:
         self.stats = {
             "BINARY_TEXT": 0, "BINARY_IMAGE": 0, "BINARY_OTHER": 0,
             "ENCRYPTED": 0, "DECODED": 0, "BASE64": 0, "COMPRESSED": 0, 
-            "SYSTEM": 0, "NOISE": 0
+            "SYSTEM": 0, "NOISE": 0, 'BINARY_PDF': 0
         }
 
     def _classifyBin(self, file_path: str) -> str:
@@ -182,10 +182,12 @@ class DumpGenerator:
             return "BINARY_IMAGE"
         elif ext in TEXT_EXTENSIONS:
             return "BINARY_TEXT"
+        elif ext == '.pdf':
+            return "BINARY_PDF"
         else:
             return "BINARY_OTHER"
 
-    def run(self, files: list, noise: bool = False, noiseLevel: float = 0.5, fragmentation: bool = True, balanceMode: str = "files"):
+    def run(self, files: list, noise: bool = False, noiseLevel: float = 0.5, fragmentation: bool = True, balanceMode: str = "size"):
         self.rng.shuffle(files)
 
         targetBytesPerType = 0
@@ -265,8 +267,8 @@ if __name__ == "__main__":
         
         print(f"Fichiers sources trouvés : {len(files)}")
 
-        generator = DumpGenerator(size_mb=20, seed=24)
-        ram_bin, metadata = generator.run(files, noise=True, noiseLevel=0.2, balanceMode="files")
+        generator = DumpGenerator(size_mb=200, seed=6842)
+        ram_bin, metadata = generator.run(files, noise=True, noiseLevel=0.2, balanceMode="size")
 
         bin_file = os.path.join(output_path, "ram_dump.bin")
         meta_file = os.path.join(output_path, "metadata.json")

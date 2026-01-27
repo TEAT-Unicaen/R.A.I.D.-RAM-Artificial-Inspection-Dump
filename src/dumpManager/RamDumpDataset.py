@@ -26,8 +26,9 @@ class RamDumpDataset(Dataset):
             "ENCRYPTED": 1,
             "COMPRESSED": 1,
             "BINARY_TEXT": 0,
-            "BINARY_IMAGE": 0,
+            "BINARY_IMAGE": 1,
             "BINARY_OTHER": 0,
+            "BINARY_PDF": 1, # Les PDF sont souvent compressés on considère donc comme chiffrés
             "BASE64": 0,
             "DECODED": 0,
             "SYSTEM": 0,
@@ -65,6 +66,6 @@ class RamDumpDataset(Dataset):
         chunk = self.ram_data[offset : offset + self.chunk_size]
         
         x = torch.tensor(list(chunk), dtype=torch.long)
-        y = torch.tensor(label, dtype=torch.bool)
+        y = torch.tensor(label, dtype=torch.float)
         
         return x, y
