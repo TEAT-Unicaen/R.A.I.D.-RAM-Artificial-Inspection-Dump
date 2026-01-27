@@ -9,14 +9,14 @@ from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransfo
 
 import config as cfg
 
-def train(learning_rate=0.001, num_epochs=5):
+def train(learning_rate=0.001, num_epochs=5, batch_size=32):
     dataset = RamDumpDataset(
         bin_path=cfg.BIN_PATH, 
         meta_path=cfg.META_PATH, 
         chunk_size=512
     )
 
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     model = BytesTransformerClassifier(dim_model=128, num_heads=4, num_layers=2, dropout=0.1)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -59,6 +59,6 @@ def train(learning_rate=0.001, num_epochs=5):
 if __name__ == "__main__":
     import os
     if os.path.exists(cfg.BIN_PATH) and os.path.exists(cfg.META_PATH):
-        train(num_epochs=25)
+        train(num_epochs=20)
     else:
         print("Erreur : Données introuvables. Lancez d'abord le générateur (DumpGenerator).")
