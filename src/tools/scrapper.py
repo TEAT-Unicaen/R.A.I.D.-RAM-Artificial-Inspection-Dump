@@ -61,4 +61,4 @@ def setup_test_data(base_path="data", count_per_type=10):
             time.sleep(1)
 
 if __name__ == "__main__":
-    setup_test_data(base_path="../data", count_per_type=30)
+    setup_test_data(base_path="./data", count_per_type=5000)

@@ -43,7 +43,7 @@ def evaluate():
         chunk_size=512
     )
 
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=0)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
     total_batches = len(test_loader)
     print(f"Nombre d'échantillons à tester : {len(test_dataset)} (sur {total_batches} batchs)")
 
