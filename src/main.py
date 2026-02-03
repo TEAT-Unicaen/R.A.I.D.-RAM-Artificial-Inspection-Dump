@@ -3,12 +3,13 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 import sys
 
-# Tes imports personnalisés
 from dumpManager.RamDumpDataset import RamDumpDataset
 from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransformerClassifier
 import config as cfg
 
-def evaluate():
+from tools.visualizerExport import RaidVisualizerExporter
+
+def evaluate(genereateExport=False):
     if not torch.cuda.is_available():
         print("Aucun GPU détécté, évaluation sur CPU.")
         device = torch.device("cpu")
@@ -47,38 +48,53 @@ def evaluate():
     total_batches = len(test_loader)
     print(f"Nombre d'échantillons à tester : {len(test_dataset)} (sur {total_batches} batchs)")
 
+    visualizer = RaidVisualizerExporter() if genereateExport else None
+
     print("Démarrage de l'analyse...")
     total, correct = 0, 0
     errorType = {}
     
     for batch_idx, (data, labels) in enumerate(test_loader):
+
+        raw_chunks = data.cpu().numpy()
         data, labels = data.to(device), labels.to(device)
-        
+
         with torch.no_grad():
             outputs = model(data)
             probs = torch.sigmoid(outputs).squeeze()
             predictions = (probs > 0.5).float()
             
-            correct_in_batch = (predictions == labels.float()).sum().item()
             total += labels.size(0)
-            correct += correct_in_batch
+            correct += (predictions == labels.float()).sum().item()
 
             for i in range(len(labels)):
                 pred = predictions[i].item()
                 target = labels[i].item()
+                isCorrect = (pred == target)
+
+                global_idx = batch_idx * test_loader.batch_size + i
+                offset_val, _ = test_dataset.samples[global_idx]
                 
-                if pred != target:
-                    global_idx = batch_idx * test_loader.batch_size + i
-                    offset_erreur, _ = test_dataset.samples[global_idx] #metadata file
-                    
-                    type_reel = "unknown"
-                    for entry in test_dataset.metadata:
-                        if entry['data_start'] <= offset_erreur < entry['data_end']:
-                            type_reel = entry['type']
-                            break
-                    
-                    #print(f"[ERROR] batch {batch_idx+1} ({i}) | Real type: {type_reel} | Predicted type: {'crypted' if pred == 1 else 'clear'}")
-                    errorType[type_reel] = errorType.get(type_reel, 0) + 1
+                real_type = "unknown"
+                for entry in test_dataset.metadata:
+                    if entry['data_start'] <= offset_val < entry['data_end']:
+                        real_type = entry['type']
+                        break
+
+                if not isCorrect:
+                    errorType[real_type] = errorType.get(real_type, 0) + 1
+                
+                chunk_bytes = bytes(raw_chunks[i].astype('uint8').tolist())
+
+                if visualizer:
+                    visualizer.addSegment(
+                        offset=offset_val,
+                        raw=chunk_bytes,
+                        prediction="crypted" if pred == 1 else "clear",
+                        isCorrect=isCorrect,
+                        trueLabel=real_type,
+                        #metadata={"confidence": probs[i].item()} #@todo ajouter les infos de confiance, l'entropie ou des conneries comme ça si possible
+                    )
 
     accuracy = correct / total if total > 0 else 0
     print("\n--- Détails des erreurs par type de données ---")
@@ -86,5 +102,8 @@ def evaluate():
         print(f"Type: {data_type} | Erreurs: {count}")
     print(f"\n--- Évaluation terminée ---\nExactitude totale : {accuracy:.2%} ({correct}/{total})")
 
+    if visualizer:
+        visualizer.saveJson(filepath="raid_evaluation_visualization.json")
+
 if __name__ == "__main__":
-    evaluate()
+    evaluate(genereateExport=True)
