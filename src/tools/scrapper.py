@@ -23,13 +23,13 @@ def setup_test_data(base_path="data", count_per_type=10):
             if len(pdf_data) > 1000:
                 with open(os.path.join(base_path, f"sample_doc_{i}.pdf"), "wb") as f:
                     f.write(pdf_data)
-            time.sleep(1.5)
+            time.sleep(0.2)
         except Exception as e: print(f"Erreur PDF {i}: {e}")
 
     print(f"Récupération de {count_per_type} articles Wikipédia...")
 
-    headers = {'User-Agent': 'MyForensicDatasetBot/1.0 (contact@example.com)'}
-    wiki_api_url = "https://fr.wikipedia.org/api/rest_v1/page/random/summary"
+    headers = {'User-Agent': 'RAID-Bot/1.0 (contact@exemple.com)'}
+    wiki_api_url = "https://fr.wikipedia.org/w/api.php"
     
     success_count = 0
     attempts = 0
@@ -37,28 +37,45 @@ def setup_test_data(base_path="data", count_per_type=10):
 
     while success_count < count_per_type and attempts < max_attempts:
         attempts += 1
+        
+        params = {
+            "action": "query",
+            "format": "json",
+            "generator": "random",
+            "grnnamespace": 0,
+            "prop": "extracts",
+            "explaintext": True,
+            "exlimit": 1
+        }
+
         try:
-            response = requests.get(wiki_api_url, headers=headers, timeout=10)
+            response = requests.get(wiki_api_url, params=params, headers=headers, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
-                content = data.get('extract', '')
+                pages = data.get('query', {}).get('pages', {})
                 
-                if content:
-                    filename = f"wiki_{success_count}.txt"
+                if pages:
+                    page_id = list(pages.keys())[0]
+                    content = pages[page_id].get('extract', '')
                     
-                    with open(os.path.join(base_path, filename), "w", encoding="utf-8") as f:
-                        f.write(content)
-                    success_count += 1
+                    if len(content) > 200:
+                        filename = f"wiki_{success_count}.txt"
+                        with open(os.path.join(base_path, filename), "w", encoding="utf-8") as f:
+                            f.write(content)
+                        success_count += 1
+                        if success_count % 10 == 0:
+                            print(f"Articles récupérés : {success_count}/{count_per_type}")
+                
             elif response.status_code == 429:
                 print("Trop de requêtes... pause de 5 secondes.")
                 time.sleep(5)
             
-            time.sleep(0.5) # Petit délai de courtoisie
+            time.sleep(0.2)
             
         except Exception as e:
             print(f"Erreur lors de l'appel Wiki : {e}")
             time.sleep(1)
 
 if __name__ == "__main__":
-    setup_test_data(base_path="./data", count_per_type=5000)
+    setup_test_data(base_path="./data", count_per_type=100)
