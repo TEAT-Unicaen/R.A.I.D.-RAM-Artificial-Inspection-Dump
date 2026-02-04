@@ -4,19 +4,15 @@ class RaidVisualizerExporter:
     def __init__(self):
         self.segments = []
 
-    def addSegment(self, offset, raw, prediction, isCorrect, trueLabel, metadata):
-
-        content = raw.hex() #json pt si bin
+    def addSegment(self, offset, size, prediction, isCorrect, trueLabel, metadata=None):
 
         seg = {
-            "id": f"seg_{offset}",
-            "offset": offset,
-            "size": len(raw),
-            "prediction": prediction,
-            "isCorrect": isCorrect,
-            "trueLabel": trueLabel,
-            "contentHex": content,
-            "metadata": metadata or {}
+            "o": offset, #ne pas changer les clés, optimisation taille fichier
+            "s": size,
+            "p": prediction,
+            "c": isCorrect,
+            "t": trueLabel,
+            "m": metadata or {}
         }
 
         self.segments.append(seg)

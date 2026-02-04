@@ -56,7 +56,6 @@ def evaluate(genereateExport=False):
     
     for batch_idx, (data, labels) in enumerate(test_loader):
 
-        raw_chunks = data.cpu().numpy()
         data, labels = data.to(device), labels.to(device)
 
         with torch.no_grad():
@@ -83,13 +82,11 @@ def evaluate(genereateExport=False):
 
                 if not isCorrect:
                     errorType[real_type] = errorType.get(real_type, 0) + 1
-                
-                chunk_bytes = bytes(raw_chunks[i].astype('uint8').tolist())
 
                 if visualizer:
                     visualizer.addSegment(
                         offset=offset_val,
-                        raw=chunk_bytes,
+                        size=test_dataset.chunk_size,
                         prediction="crypted" if pred == 1 else "clear",
                         isCorrect=isCorrect,
                         trueLabel=real_type,
