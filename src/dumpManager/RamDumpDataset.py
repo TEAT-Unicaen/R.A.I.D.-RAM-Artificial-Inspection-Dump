@@ -13,23 +13,43 @@ class RamDumpDataset(Dataset):
         with open(meta_path, 'r') as f:
             self.metadata = json.load(f)
             
+        # 0: clear | 1: encrypted-like
         self.label_map = {
-            "ENCRYPTED": 1, "COMPRESSED": 1, "BINARY_TEXT": 0,
-            "BINARY_IMAGE": 1, "BINARY_OTHER": 0, "BINARY_PDF": 1,
-            "BASE64": 0, "DECODED": 0, "SYSTEM": 0, "NOISE": 0
+            "ENCRYPTED": 1,
+            "COMPRESSED": 1,
+            "BINARY_TEXT": 0,
+            "BINARY_IMAGE": 1,
+            "BINARY_OTHER": 0,
+            "BINARY_PDF": 1,
+            "BASE64": 0,
+            "DECODED": 0,
+            "SYSTEM": 0,
+            "NOISE": 0
         }
         self._prepare_samples()
 
     def _prepare_samples(self):
-        for entry in self.metadata:
-            label_str = entry['type']
-            if label_str not in self.label_map: continue
-            label = self.label_map[label_str]
-            start, end = entry['data_start'], entry['data_end']
-            current_pos = start
-            while current_pos + self.chunk_size <= end:
-                self.samples.append((current_pos, label))
-                current_pos += self.chunk_size
+        bin_size = self.metadata[-1]['data_end']
+        current_pos = 0
+        endNextData, index = self.metadata[0]['data_end'], 0
+        type = self.label_map.get(self.metadata[0]['type'], 0)
+        while current_pos + self.chunk_size <= bin_size:
+            if current_pos >= endNextData and index < len(self.metadata) - 1:
+                index += 1
+                endNextData = self.metadata[index]['data_end']
+                type = self.label_map.get(self.metadata[index]['type'], 0)
+            self.samples.append((current_pos, type))
+            current_pos += self.chunk_size
+        
+        # for entry in self.metadata:
+        #     label_str = entry['type']
+        #     if label_str not in self.label_map: continue
+        #     label = self.label_map[label_str]
+        #     start, end = entry['header_start'], entry['data_end']
+        #     current_pos = start
+        #     while current_pos + self.chunk_size <= end:
+        #         self.samples.append((current_pos, label))
+        #         current_pos += self.chunk_size
 
     def __len__(self):
         return len(self.samples)

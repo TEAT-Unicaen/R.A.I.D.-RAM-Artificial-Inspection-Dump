@@ -60,7 +60,7 @@ def evaluate(genereateExport=False):
 
         with torch.no_grad():
             outputs = model(data)
-            probs = torch.sigmoid(outputs).squeeze()
+            probs = torch.sigmoid(outputs).view(-1)
             predictions = (probs > 0.5).float()
             
             total += labels.size(0)
@@ -76,7 +76,7 @@ def evaluate(genereateExport=False):
                 
                 real_type = "unknown"
                 for entry in test_dataset.metadata:
-                    if entry['data_start'] <= offset_val < entry['data_end']:
+                    if entry['header_start'] <= offset_val < entry['data_end']:
                         real_type = entry['type']
                         break
 
