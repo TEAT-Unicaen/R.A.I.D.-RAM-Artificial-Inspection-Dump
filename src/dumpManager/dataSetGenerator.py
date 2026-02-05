@@ -190,19 +190,23 @@ class DumpGenerator:
     def run(self, files: list, noise: bool = False, noiseLevel: float = 0.5, fragmentation: bool = True, balanceMode: str = "size"):
         self.rng.shuffle(files)
 
+        labels_to_balance = ["BASE64", "BINARY_IMAGE", "BINARY_PDF", "BINARY_TEXT", "COMPRESSED", "DECODED", "ENCRYPTED"]
+        
         targetBytesPerType = 0
         if balanceMode == "size":
-            targetBytesPerType = self.totalBytes // len([k for k in self.stats.keys() if k not in ["NOISE", "SYSTEM"]])
+            targetBytesPerType = self.totalBytes // len(labels_to_balance)
         
         kernelCount = 0
         for file_path in files:
-            if self.mem.offset >= self.totalBytes * 0.95: break # Stop à 95% de la taille max
+            if self.mem.offset >= self.totalBytes * 0.95: break 
 
             ext = os.path.splitext(file_path)[1].lower()
             isImage = ext in IMAGE_EXTENSIONS
 
-            with open(file_path, 'rb') as f:
-                fullContent = f.read()
+            try:
+                with open(file_path, 'rb') as f:
+                    fullContent = f.read()
+            except Exception: continue
 
             if fragmentation and len(fullContent) > 1024:
                 max_frag = min(500000, len(fullContent))
@@ -212,33 +216,47 @@ class DumpGenerator:
             else:
                 content = fullContent
 
-            tasks = []
-            
+            specific_tasks = []
             binType = self._classifyBin(file_path)
-            tasks.append((binType, lambda c=content: (c, {"subtype": "raw"})))
+            if binType in ["BINARY_IMAGE", "BINARY_PDF", "BINARY_TEXT"]:
+                specific_tasks.append((binType, lambda c=content: (c, {"subtype": "raw"})))
             
-            tasks.append(("ENCRYPTED", lambda c=content: (self.proc.toEncrypted(c), {"algorithm": "AES-256-CBC"})))
-            
-            tasks.append(("BASE64", lambda c=content: (self.proc.toBase64(c), {"encoding": "base64"})))
-            
-            tasks.append(("COMPRESSED", lambda c=content: (self.proc.toCompressed(c), {"algorithm": "zlib"})))
-
-            # DECODED pour images
             if isImage:
                 def decode_task():
                     pixels, meta = self.proc.toDecodedImage(fullContent, fragment=fragmentation)
                     return (pixels, meta) if pixels is not None else (None, None)
-                tasks.append(("DECODED", decode_task))
+                specific_tasks.append(("DECODED", decode_task))
 
-            self.rng.shuffle(tasks)
+            generic_tasks = [
+                ("ENCRYPTED", lambda c=content: (self.proc.toEncrypted(c), {"algorithm": "AES-256-CBC"})),
+                ("BASE64", lambda c=content: (self.proc.toBase64(c), {"encoding": "base64"})),
+                ("COMPRESSED", lambda c=content: (self.proc.toCompressed(c), {"algorithm": "zlib"}))
+            ]
 
-            for label, func in tasks:
-                if balanceMode == "files" or self.stats[label] < targetBytesPerType:
+            self.rng.shuffle(specific_tasks)
+            self.rng.shuffle(generic_tasks)
+
+            written_something = False
+            
+            for label, func in specific_tasks:
+                if self.stats[label] < targetBytesPerType:
                     data, extra_info = func()
                     if data:
                         written = self.mem.write(data, label, file_path, extra_info)
                         self.stats[label] += written
+                        written_something = True
+                        break
             
+            if not written_something:
+                for label, func in generic_tasks:
+                    if self.stats[label] < targetBytesPerType:
+                        data, extra_info = func()
+                        if data:
+                            written = self.mem.write(data, label, file_path, extra_info)
+                            self.stats[label] += written
+                            written_something = True
+                            break
+
             if self.rng.random() > 0.7:
                 sysType = self.rng.choice(['POINTERS', 'STRINGS'])
                 sysDat = self.proc.generatePointers(20) if sysType == "POINTERS" else self.proc.generateRandomStrings(10)

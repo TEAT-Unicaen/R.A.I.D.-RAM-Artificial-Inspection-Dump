@@ -46,7 +46,8 @@ def download_one_wiki(i, base_path, headers, wiki_api_url):
     except Exception as e:
         print(f"Erreur Wiki {i}: {e}")
 
-def setup_test_data_parallel(base_path="data", count_per_type=100):
+def setup_test_data_parallel(base_path="data", target_mb=100):
+    target_mb = target_mb * 3 # Avec ces valeurs ont obtient environ 300MB a la generation du dataset
     os.makedirs(base_path, exist_ok=True)
     headers = {'User-Agent': 'RAID-Bot/1.0 (contact@exemple.com)'}
     wiki_api_url = "https://fr.wikipedia.org/w/api.php"
@@ -55,16 +56,16 @@ def setup_test_data_parallel(base_path="data", count_per_type=100):
     
     with ThreadPoolExecutor(max_workers=13) as executor:
         
-        print(f"Lancement : Images (1 worker), PDFs (4 workers), Wiki (8 workers)")
+        print(f"Lancement : Images (4 workers), PDFs (4 workers), Wiki (8 workers)")
         
-        with ThreadPoolExecutor(max_workers=1) as img_pool:
-            img_pool.map(lambda i: download_one_image(i, base_path), range(count_per_type))
+        with ThreadPoolExecutor(max_workers=4) as img_pool:
+            img_pool.map(lambda i: download_one_image(i, base_path), range(target_mb * 4))
             
-        with ThreadPoolExecutor(max_workers=4) as pdf_pool:
-            pdf_pool.map(lambda i: download_one_pdf(i, base_path), range(count_per_type // 10))
+        with ThreadPoolExecutor(max_workers=1) as pdf_pool:
+            pdf_pool.map(lambda i: download_one_pdf(i, base_path), range(target_mb // 5))
             
         with ThreadPoolExecutor(max_workers=8) as wiki_pool:
-            wiki_pool.map(lambda i: download_one_wiki(i, base_path, headers, wiki_api_url), range(count_per_type * 100))
+            wiki_pool.map(lambda i: download_one_wiki(i, base_path, headers, wiki_api_url), range(target_mb * 20))
 
 if __name__ == "__main__":
-    setup_test_data_parallel(count_per_type=300)
+    setup_test_data_parallel(target_mb=100)
