@@ -29,23 +29,23 @@ class RamDumpDataset(Dataset):
         self._prepare_samples()
 
     def _prepare_samples(self):
-        bin_size = self.metadata[-1]['data_end']
+        bin_size = self.metadata[-1]['de']
         current_pos = 0
-        endNextData, index = self.metadata[0]['data_end'], 0
-        type = self.label_map.get(self.metadata[0]['type'], 0)
+        endNextData, index = self.metadata[0]['de'], 0
+        type = self.label_map.get(self.metadata[0]['t'], 0)
         while current_pos + self.chunk_size <= bin_size:
             if current_pos >= endNextData and index < len(self.metadata) - 1:
                 index += 1
-                endNextData = self.metadata[index]['data_end']
-                type = self.label_map.get(self.metadata[index]['type'], 0)
+                endNextData = self.metadata[index]['de']
+                type = self.label_map.get(self.metadata[index]['t'], 0)
             self.samples.append((current_pos, type))
             current_pos += self.chunk_size
         
         # for entry in self.metadata:
-        #     label_str = entry['type']
+        #     label_str = entry['t']
         #     if label_str not in self.label_map: continue
         #     label = self.label_map[label_str]
-        #     start, end = entry['header_start'], entry['data_end']
+        #     start, end = entry['he'], entry['de']
         #     current_pos = start
         #     while current_pos + self.chunk_size <= end:
         #         self.samples.append((current_pos, label))

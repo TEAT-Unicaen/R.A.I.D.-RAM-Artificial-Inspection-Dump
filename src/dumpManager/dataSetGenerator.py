@@ -128,17 +128,17 @@ class MemoryLayout:
             self.ram[self.offset: self.offset + size] = data
 
             entry = {
-                "type": label,
-                "header_start": headerStart,
-                "header_end": dataStart,
-                "data_start": dataStart,
-                "data_end": dataStart + size,
-                "size": size,
-                "file": os.path.basename(originFile)
+                "t": label,
+                "hs": headerStart,
+                "he": dataStart,
+                "ds": dataStart,
+                "de": dataStart + size,
+                "s": size,
+                "f": os.path.basename(originFile)
             }
 
             if extra:
-                entry["extra"] = extra
+                entry["e"] = extra
 
             self.metadata.append(entry)
             self.offset += size
@@ -153,13 +153,13 @@ class MemoryLayout:
             self.ram[self.offset : self.offset + gap] = noise
             
             self.metadata.append({
-                "type": "NOISE",
-                "header_start": self.offset,
-                "header_end": self.offset,
-                "data_start": self.offset,
-                "data_end": self.offset + gap,
-                "size": gap,
-                "file": "random_noise"
+                "t": "NOISE",
+                "hs": self.offset,
+                "he": self.offset,
+                "ds": self.offset,
+                "de": self.offset + gap,
+                "s": gap,
+                "f": "random_noise"
             })
             self.offset += gap
 
@@ -219,7 +219,7 @@ class DumpGenerator:
             specific_tasks = []
             binType = self._classifyBin(file_path)
             if binType in ["BINARY_IMAGE", "BINARY_PDF", "BINARY_TEXT"]:
-                specific_tasks.append((binType, lambda c=content: (c, {"subtype": "raw"})))
+                specific_tasks.append((binType, lambda c=content: (c, {"sbt": "raw"})))
             
             if isImage:
                 def decode_task():
@@ -266,7 +266,7 @@ class DumpGenerator:
 
             if noise and self.rng.random() > noiseLevel:
                 self.mem.addNoise(self.rng)
-                self.stats["NOISE"] += self.mem.metadata[-1]["data_end"] - self.mem.metadata[-1]["data_start"]
+                self.stats["NOISE"] += self.mem.metadata[-1]["de"] - self.mem.metadata[-1]["ds"]
 
         return self.mem.ram[:self.mem.offset], self.mem.metadata
 
@@ -306,10 +306,3 @@ if __name__ == "__main__":
             if val > 0:
                 percentage = (val / len(ram_bin) * 100) if len(ram_bin) > 0 else 0
                 print(f"- {label:15} : {val/1024:>8.2f} KB ({percentage:.1f}%)")
-        
-        print("\nStructure RAM (5 premiers segments) :")
-        for entry in metadata[:5]:
-            extra = f" | {entry.get('extra', {})}" if 'extra' in entry else ""
-            print(f"  [H:{entry['header_start']:>8}-{entry['header_end']:>8}] "
-                  f"[D:{entry['data_start']:>8}-{entry['data_end']:>8}] | "
-                  f"{entry['type']:15} | {entry['file']}{extra}")

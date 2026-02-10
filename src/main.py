@@ -76,8 +76,8 @@ def evaluate(genereateExport=False):
                 
                 real_type = "unknown"
                 for entry in test_dataset.metadata:
-                    if entry['header_start'] <= offset_val < entry['data_end']:
-                        real_type = entry['type']
+                    if entry['he'] <= offset_val < entry['de']:
+                        real_type = entry['t']
                         break
 
                 if not isCorrect:
