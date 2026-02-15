@@ -47,9 +47,9 @@ def download_one_wiki(i, base_path, headers, wiki_api_url):
         print(f"Erreur Wiki {i}: {e}")
 
 def setup_test_data_parallel(base_path="data", target_mb=100):
-    target_mb = target_mb * 3 # Avec ces valeurs ont obtient environ 300MB a la generation du dataset
+    target_mb = target_mb * 3 # Avec ces valeurs ont obtient environ 100MB a la generation du dataset
     os.makedirs(base_path, exist_ok=True)
-    headers = {'User-Agent': 'RAID-Bot/1.0 (contact@exemple.com)'}
+    headers = {'User-Agent': 'RAID'}
     wiki_api_url = "https://fr.wikipedia.org/w/api.php"
 
     print(f"Démarrage du téléchargement parallèle...")
