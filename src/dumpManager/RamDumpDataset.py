@@ -4,9 +4,10 @@ from torch.utils.data import Dataset
 import mmap
 
 class RamDumpDataset(Dataset):
-    def __init__(self, bin_path, meta_path, chunk_size=512):
+    def __init__(self, bin_path, meta_path, chunk_size=512, offset=512):
         self.bin_path = bin_path
         self.chunk_size = chunk_size
+        self.offset = min(offset, chunk_size)
         self.samples = []
         self.ram_data = None
         
@@ -40,6 +41,9 @@ class RamDumpDataset(Dataset):
             
             type_counts = {}
             
+            while meta_idx < num_meta and self.metadata[meta_idx]['de'] <= segment_start:
+                meta_idx += 1
+            
             temp_idx = meta_idx
             while temp_idx < num_meta:
                 entry = self.metadata[temp_idx]
@@ -55,9 +59,6 @@ class RamDumpDataset(Dataset):
                     overlap_len = overlap_end - overlap_start
                     label_val = self.label_map.get(entry['t'], 0)
                     type_counts[label_val] = type_counts.get(label_val, 0) + overlap_len
-                    
-                    if entry['de'] <= segment_start:
-                        meta_idx = temp_idx
                 
                 temp_idx += 1
  
@@ -67,7 +68,7 @@ class RamDumpDataset(Dataset):
                 major_type = 0
                 
             self.samples.append((current_pos, major_type))
-            current_pos += self.chunk_size
+            current_pos += self.offset
 
     def __len__(self):
         return len(self.samples)
@@ -77,8 +78,8 @@ class RamDumpDataset(Dataset):
             f = open(self.bin_path, 'rb')
             self.ram_data = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
         
-        offset, label = self.samples[idx]
-        chunk = self.ram_data[offset : offset + self.chunk_size]
+        data_start, label = self.samples[idx]
+        chunk = self.ram_data[data_start : data_start + self.chunk_size]
         
         x = torch.tensor(list(chunk), dtype=torch.long)
         y = torch.tensor(label, dtype=torch.float)
