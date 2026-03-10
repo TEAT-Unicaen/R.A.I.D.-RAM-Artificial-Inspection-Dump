@@ -42,44 +42,21 @@ class BytesTransformerClassifier(nn.Module):
 
     def forward(self, x):
         """
-        En gros c'est relou à lire mais pas compliqué : t'as un vecteur par byte, des fois incomplet donc t'as du bruit (padding).
-        Sauf que le classifier il faut qu'un vecteur donc on sépare le vrai du faux avec un masque
-        Et après on fait une moyenne des vrais vecteurs uniquement (Global Average Pooling masqué)
+        Retourne les logits pour chaque byte de la séquence.
         """
 
         # --- Étape 1 : Gestion du Masque de Padding ---
-        # Crée un masque Booléen : True là où x est du padding (valeur 256)
-        # Forme : (Batch_Size, Seq_Len)
         src_key_padding_mask = (x == self.padding_idx)
 
         # --- Étape 2 : Embedding + Encodage Positionnel ---
-        # Scaling par sqrt(d_model) est standard dans "Attention Is All You Need"
         x = self.embedding(x) * math.sqrt(self.dim_model)
         x = self.pos_encoder(x)
         
         # --- Étape 3 : Passage dans le Transformer ---
-        # Le masque empêche l'attention de regarder les tokens de padding
-        # Sortie : (Batch_Size, Seq_Len, dim_model)
         x = self.transformer_encoder(x, src_key_padding_mask=src_key_padding_mask)
         
-        # --- Étape 4 : Global Average Pooling (Moyennage intelligent) ---
-        # On ne veut pas faire la moyenne des vecteurs de padding (qui sont des bruits).
-        # On crée un masque multiplicatif (0 pour le padding, 1 pour les données réelles)
-        mask_expanded = (~src_key_padding_mask).unsqueeze(-1).float() # (Batch, Seq, 1)  --> la vague ça inverse le masque booléen
+        # --- Étape 4 : Classification pour chaque byte ---
+        # Sortie : (Batch_Size, Seq_Len, 1)
+        logits = self.classifier(x)
         
-        # On met à zéro les vecteurs de padding
-        x_masked = x * mask_expanded
-        
-        # Somme sur l'axe de la séquence
-        sum_embeddings = x_masked.sum(dim=1) # (Batch, dim_model)
-        
-        # On compte le nombre de vrais tokens par séquence pour diviser correctement
-        # clamp(min=1) évite la division par zéro si une séquence est vide (cas limite)
-        valid_token_counts = mask_expanded.sum(dim=1).clamp(min=1) 
-        
-        pooled_output = sum_embeddings / valid_token_counts
-        
-        # --- Étape 5 : Classification ---
-        logits = self.classifier(pooled_output)
-        
-        return logits
+        return logits.squeeze(-1)  # (Batch_Size, Seq_Len)
