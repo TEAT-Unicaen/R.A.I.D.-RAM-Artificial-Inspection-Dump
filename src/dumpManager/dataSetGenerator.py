@@ -129,9 +129,7 @@ class MemoryLayout:
 
             entry = {
                 "t": label,
-                "hs": headerStart,
-                "he": dataStart,
-                "ds": dataStart,
+                "ds": headerStart,
                 "de": dataStart + size,
                 "s": size,
                 "f": os.path.basename(originFile)
@@ -154,8 +152,6 @@ class MemoryLayout:
             
             self.metadata.append({
                 "t": "NOISE",
-                "hs": self.offset,
-                "he": self.offset,
                 "ds": self.offset,
                 "de": self.offset + gap,
                 "s": gap,
