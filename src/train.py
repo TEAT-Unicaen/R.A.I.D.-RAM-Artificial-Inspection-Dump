@@ -13,7 +13,8 @@ def train(learning_rate=0.001, num_epochs=5, batch_size=32):
     dataset = RamDumpDataset(
         bin_path=cfg.BIN_PATH, 
         meta_path=cfg.META_PATH, 
-        chunk_size=512
+        chunk_size=512,
+        offset=128
     )
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, pin_memory=True, num_workers=4)

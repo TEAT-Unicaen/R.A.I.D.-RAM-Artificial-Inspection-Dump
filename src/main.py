@@ -41,7 +41,8 @@ def evaluate(genereateExport=False):
     test_dataset = RamDumpDataset(
         bin_path=cfg.BIN_PATH, 
         meta_path=cfg.META_PATH, 
-        chunk_size=512
+        chunk_size=512,
+        offset=128
     )
 
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
