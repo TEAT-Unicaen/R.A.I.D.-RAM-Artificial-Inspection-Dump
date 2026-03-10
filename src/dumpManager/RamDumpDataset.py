@@ -31,25 +31,43 @@ class RamDumpDataset(Dataset):
     def _prepare_samples(self):
         bin_size = self.metadata[-1]['de']
         current_pos = 0
-        endNextData, index = self.metadata[0]['de'], 0
-        type = self.label_map.get(self.metadata[0]['t'], 0)
+        meta_idx = 0
+        num_meta = len(self.metadata)
+
         while current_pos + self.chunk_size <= bin_size:
-            if current_pos >= endNextData and index < len(self.metadata) - 1:
-                index += 1
-                endNextData = self.metadata[index]['de']
-                type = self.label_map.get(self.metadata[index]['t'], 0)
-            self.samples.append((current_pos, type))
+            segment_start = current_pos
+            segment_end = current_pos + self.chunk_size
+            
+            type_counts = {}
+            
+            temp_idx = meta_idx
+            while temp_idx < num_meta:
+                entry = self.metadata[temp_idx]
+                
+                if entry['ds'] >= segment_end:
+                    break
+                    
+                #intersection
+                overlap_start = max(segment_start, entry['ds'])
+                overlap_end = min(segment_end, entry['de'])
+                
+                if overlap_start < overlap_end:
+                    overlap_len = overlap_end - overlap_start
+                    label_val = self.label_map.get(entry['t'], 0)
+                    type_counts[label_val] = type_counts.get(label_val, 0) + overlap_len
+                    
+                    if entry['de'] <= segment_start:
+                        meta_idx = temp_idx
+                
+                temp_idx += 1
+ 
+            if type_counts:
+                major_type = max(type_counts, key=type_counts.get)
+            else:
+                major_type = 0
+                
+            self.samples.append((current_pos, major_type))
             current_pos += self.chunk_size
-        
-        # for entry in self.metadata:
-        #     label_str = entry['t']
-        #     if label_str not in self.label_map: continue
-        #     label = self.label_map[label_str]
-        #     start, end = entry['he'], entry['de']
-        #     current_pos = start
-        #     while current_pos + self.chunk_size <= end:
-        #         self.samples.append((current_pos, label))
-        #         current_pos += self.chunk_size
 
     def __len__(self):
         return len(self.samples)

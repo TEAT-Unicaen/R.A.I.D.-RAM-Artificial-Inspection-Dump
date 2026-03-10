@@ -7,11 +7,11 @@ class BytesTransformerClassifier(nn.Module):
     def __init__(self, dim_model: int=128, num_heads: int=4, num_layers: int=4, dim_ff: int=512, dropout: float=0.1):
         """
         Args:
-            Dim_model: Dimension of the model
-            Num_heads: Number of attention heads
-            Num_layers: Number of transformer layers
-            Dim_ff: 
-            Dropout: Dropout rate
+            dim_model:  Embedding/hidden dimension throughout the model.
+            num_heads:  Number of self-attention heads.
+            num_layers: Number of TransformerEncoder layers.
+            dim_ff:     Inner dimension of the feed-forward sublayer.
+            dropout:    Dropout probability applied throughout.
         """
         super().__init__()
         self.padding_idx = 256 # Valeur pour le padding (octet hors plage)

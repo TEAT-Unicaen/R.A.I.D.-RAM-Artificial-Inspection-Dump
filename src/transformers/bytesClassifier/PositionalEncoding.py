@@ -4,7 +4,7 @@ import math
 
 class PositionalEncoding(nn.Module):
     """
-    sans cette classe, un modèle Transformer voit les mots comme un "sac de mots" sans ordre, car il traite tout en parallèle
+    Sans cette classe, un modèle Transformer voit les mots comme un "sac de mots" sans ordre, car il traite tout en parallèle
     """
     def __init__(self, d_model: int, max_len:int =5000, dropout: float=0.1):
         super().__init__()
