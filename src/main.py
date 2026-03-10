@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
 import sys
 
@@ -18,11 +17,9 @@ def evaluate(genereateExport=False):
         print(f"--- Évaluation sur {device} ---")
 
     print("Construction du modèle...")
-
     model = BytesTransformerClassifier(
         dim_model=128, num_heads=4, num_layers=2
     )
-    
     model.to(device)
 
     try:
@@ -39,13 +36,14 @@ def evaluate(genereateExport=False):
 
     print("Chargement du Dataset...")
     test_dataset = RamDumpDataset(
-        bin_path=cfg.BIN_PATH, 
-        meta_path=cfg.META_PATH, 
+        bin_path=cfg.BIN_PATH,
+        meta_path=cfg.META_PATH,
         chunk_size=512,
         offset=128
     )
 
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
+    BATCH_SIZE = 32
+    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
     total_batches = len(test_loader)
     print(f"Nombre d'échantillons à tester : {len(test_dataset)} (sur {total_batches} batchs)")
 
@@ -54,51 +52,56 @@ def evaluate(genereateExport=False):
     print("Démarrage de l'analyse...")
     total, correct = 0, 0
     errorType = {}
-    
-    for batch_idx, (data, labels) in enumerate(test_loader):
 
+    for batch_idx, (data, labels) in enumerate(test_loader):
         data, labels = data.to(device), labels.to(device)
 
         with torch.no_grad():
             outputs = model(data)
-            probs = torch.sigmoid(outputs).view(-1)
+            probs = torch.sigmoid(outputs)
             predictions = (probs > 0.5).float()
-            
-            total += labels.size(0)
+
+            total += labels.numel()
             correct += (predictions == labels.float()).sum().item()
 
             for i in range(len(labels)):
-                pred = predictions[i].item()
-                target = labels[i].item()
-                isCorrect = (pred == target)
+                pred_row = predictions[i]
+                target_row = labels[i]
+                isCorrect = (pred_row == target_row.float()).all().item()
 
-                global_idx = batch_idx * test_loader.batch_size + i
+                global_idx = batch_idx * BATCH_SIZE + i
+                if global_idx >= len(test_dataset.samples):
+                    continue
+
                 offset_val, _ = test_dataset.samples[global_idx]
-                
+
                 real_type = "unknown"
                 for entry in test_dataset.metadata:
-                    if entry['he'] <= offset_val < entry['de']:
+                    if entry['ds'] <= offset_val < entry['de']:
                         real_type = entry['t']
                         break
+                if real_type == "unknown":
+                    print(f"Attention : Type de données inconnu pour l'offset {offset_val}")
 
                 if not isCorrect:
                     errorType[real_type] = errorType.get(real_type, 0) + 1
 
                 if visualizer:
+                    majority_pred = "crypted" if pred_row.mean().item() > 0.5 else "clear" # TODO conversion en mean mais a retirer ça
                     visualizer.addSegment(
                         offset=offset_val,
                         size=test_dataset.chunk_size,
-                        prediction="crypted" if pred == 1 else "clear",
+                        prediction=majority_pred,
                         isCorrect=isCorrect,
                         trueLabel=real_type,
-                        #metadata={"confidence": probs[i].item()} #@todo ajouter les infos de confiance, l'entropie ou des conneries comme ça si possible
                     )
 
     accuracy = correct / total if total > 0 else 0
     print("\n--- Détails des erreurs par type de données ---")
-    for data_type, count in errorType.items():
-        print(f"Type: {data_type} | Erreurs: {count}")
-    print(f"\n--- Évaluation terminée ---\nExactitude totale : {accuracy:.2%} ({correct}/{total})")
+    for data_type, count in sorted(errorType.items(), key=lambda x: -x[1]):
+        print(f"  Type: {data_type} | Erreurs: {count}")
+    print(f"\n--- Évaluation terminée ---")
+    print(f"Exactitude totale : {accuracy:.2%} ({correct}/{total})")
 
     if visualizer:
         visualizer.saveJson(filepath="raid_evaluation_visualization.json")
