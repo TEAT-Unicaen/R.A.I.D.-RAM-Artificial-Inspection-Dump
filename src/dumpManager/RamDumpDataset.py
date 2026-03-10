@@ -14,7 +14,6 @@ class RamDumpDataset(Dataset):
         with open(meta_path, 'r') as f:
             self.metadata = json.load(f)
             
-        # 0: clear | 1: encrypted-like
         self.label_map = {
             "ENCRYPTED": 1,
             "COMPRESSED": 1,
@@ -36,38 +35,10 @@ class RamDumpDataset(Dataset):
         num_meta = len(self.metadata)
 
         while current_pos + self.chunk_size <= bin_size:
-            segment_start = current_pos
-            segment_end = current_pos + self.chunk_size
-            
-            type_counts = {}
-            
-            while meta_idx < num_meta and self.metadata[meta_idx]['de'] <= segment_start:
+            while meta_idx < num_meta and self.metadata[meta_idx]['de'] <= current_pos:
                 meta_idx += 1
-            
-            temp_idx = meta_idx
-            while temp_idx < num_meta:
-                entry = self.metadata[temp_idx]
-                
-                if entry['ds'] >= segment_end:
-                    break
-                    
-                #intersection
-                overlap_start = max(segment_start, entry['ds'])
-                overlap_end = min(segment_end, entry['de'])
-                
-                if overlap_start < overlap_end:
-                    overlap_len = overlap_end - overlap_start
-                    label_val = self.label_map.get(entry['t'], 0)
-                    type_counts[label_val] = type_counts.get(label_val, 0) + overlap_len
-                
-                temp_idx += 1
- 
-            if type_counts:
-                major_type = max(type_counts, key=type_counts.get)
-            else:
-                major_type = 0
-                
-            self.samples.append((current_pos, major_type))
+
+            self.samples.append((current_pos, meta_idx))
             current_pos += self.offset
 
     def __len__(self):
@@ -78,10 +49,30 @@ class RamDumpDataset(Dataset):
             f = open(self.bin_path, 'rb')
             self.ram_data = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
         
-        data_start, label = self.samples[idx]
+        data_start, meta_idx = self.samples[idx]
+        segment_end = data_start + self.chunk_size
         chunk = self.ram_data[data_start : data_start + self.chunk_size]
         
         x = torch.tensor(list(chunk), dtype=torch.long)
-        y = torch.tensor(label, dtype=torch.float)
+        y = torch.zeros(self.chunk_size, dtype=torch.float)
+
+        temp_idx = meta_idx
+        while temp_idx < len(self.metadata):
+            entry = self.metadata[temp_idx]
+            if entry['ds'] >= segment_end:
+                break
+            if entry['de'] <= data_start:
+                temp_idx += 1
+                continue
+            
+            overlap_start = max(data_start, entry['ds']) - data_start
+            overlap_end   = min(segment_end, entry['de']) - data_start
+            
+            if overlap_start < overlap_end:
+                label_val = self.label_map.get(entry['t'], 0)
+                y[overlap_start:overlap_end] = label_val
+            
+            temp_idx += 1
+        
         
         return x, y
