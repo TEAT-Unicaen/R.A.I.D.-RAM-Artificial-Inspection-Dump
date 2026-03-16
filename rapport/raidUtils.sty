@@ -1,0 +1,53 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{raidUtils}
+
+% --- Dépendances ---
+\RequirePackage{graphicx, wrapfig, subcaption, setspace, booktabs}
+\RequirePackage{fourier}
+\RequirePackage{sectsty}
+\RequirePackage{xcolor}
+
+
+% --- Configuration des lignes et style ---
+\newcommand{\HRule}[1]{\rule{\linewidth}{#1}}
+\onehalfspacing
+\sectionfont{\scshape}
+
+% --- Logique des variables internes ---
+\makeatletter
+\newcommand{\supervised}[1]{\gdef\@supervised{#1}}
+\def\@supervised{Aucun encadrant spécifié}
+
+% --- La Fonction de Page de Garde ---
+\newcommand{\makeCustomTitle}[1]{
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    \textsc{\normalsize Rapport de Projet de Master}\\[2.0cm]
+    
+    \HRule{0.5pt} \\ [0.4cm]
+    \LARGE \textbf{\@title} \\ 
+    \HRule{2pt} \\ [1.5cm]
+    
+    \normalsize \@date \\[2cm]
+
+    \begin{minipage}{\textwidth}
+        \centering
+        \large \@author 
+    \end{minipage} \\[1.5cm]
+
+    \textit{Supervisé par :}\\
+    \@supervised 
+
+    \vfill
+    
+    \begin{quote}
+        \centering \textbf{Résumé :}\\
+        #1
+    \end{quote}
+    \vspace*{1cm}
+\end{titlepage}
+}
+\makeatother
+
+\newcommand{\citefull}[1]{\textit{\citetitle{#1}}~\cite{#1}}

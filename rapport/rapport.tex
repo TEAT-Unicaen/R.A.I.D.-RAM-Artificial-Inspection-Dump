@@ -1,0 +1,55 @@
+\documentclass[12pt]{report}
+
+% packages
+\usepackage[a4paper]{geometry}
+\usepackage[myheadings]{fullpage}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{csquotes}
+\usepackage[backend=biber]{biblatex}
+\usepackage[hidelinks]{hyperref}
+
+\usepackage{raidUtils}
+
+% Variables
+\addbibresource{references.bib}
+
+\title{R.A.I.D. \\ \large RAM Artificial Inspection Dump}
+\author{\textsc{Henry} Amand --- \textsc{Rousée} Tom --- \textsc{Sicot} Théo}
+\date{\today}
+\supervised{\textsc{Giguet} Emmanuel --- \textsc{Benoit} Tristan}
+
+
+
+\begin{document}
+    \makeCustomTitle{
+        Le projet R.A.I.D. (RAM Artificial Inspection Dump) a pour objectif de développer un outil d'inspection de la mémoire RAM d'un système informatique.
+    }
+
+    \tableofcontents
+    \newpage
+
+    \chapter{Introduction}
+    \chapter{Contexte}
+    \section{La mémoire vive (R.A.M.)}
+    \section{Le transformer}
+    On a utilise le document de référence \citefull{attention_is_all_you_need} pour expliquer le fonctionnement du transformer.
+    \subsection{L'architecture Encodeur}
+    \subsection{L'input embedding}
+    \subsection{Le mécanisme d'attention}
+    \subsubsection{Self-attention}
+    \subsubsection{Multi-head attention}
+    \subsection{Le feed-forward}
+    \subsection{La sortie}
+    \section{Le "Scrapping"}
+    \chapter{Méthodologie}
+
+
+
+
+    \printbibliography[title={Références}, heading=bibintoc]
+
+\end{document}

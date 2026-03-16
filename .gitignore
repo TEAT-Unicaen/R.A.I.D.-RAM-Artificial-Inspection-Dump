@@ -25,3 +25,16 @@ output/
 data/
 *.pth
 *.json
+
+
+#Latex files
+*.aux
+*.bbl
+*.bcf
+*.fdb_latexmk
+*.fls
+*.log
+*.run.xml
+*.synctex.gz
+*.toc
+*.out
