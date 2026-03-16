@@ -39,7 +39,7 @@ def evaluate(genereateExport=False):
         bin_path=cfg.BIN_PATH,
         meta_path=cfg.META_PATH,
         chunk_size=512,
-        offset=128
+        offset=512 #no off for tests
     )
 
     BATCH_SIZE = 32
@@ -61,40 +61,59 @@ def evaluate(genereateExport=False):
             probs = torch.sigmoid(outputs)
             predictions = (probs > 0.5).float()
 
+    for batch_idx, (data, labels) in enumerate(test_loader):
+        data, labels = data.to(device), labels.to(device)
+
+        with torch.no_grad():
+            logits = model(data)
+            probs = torch.sigmoid(logits)
+            predictions = (probs > 0.5).float()
+
             total += labels.numel()
             correct += (predictions == labels.float()).sum().item()
 
-            for i in range(len(labels)):
-                pred_row = predictions[i]
-                target_row = labels[i]
-                isCorrect = (pred_row == target_row.float()).all().item()
-
+            for i in range(len(data)):
                 global_idx = batch_idx * BATCH_SIZE + i
                 if global_idx >= len(test_dataset.samples):
-                    continue
+                    break
 
                 offset_val, _ = test_dataset.samples[global_idx]
+                sample_preds = predictions[i].cpu().numpy()
+                sample_labels = labels[i].cpu().numpy()
 
-                real_type = "unknown"
-                for entry in test_dataset.metadata:
-                    if entry['ds'] <= offset_val < entry['de']:
-                        real_type = entry['t']
-                        break
-                if real_type == "unknown":
-                    print(f"Attention : Type de données inconnu pour l'offset {offset_val}")
+                current_pos = 0
+                while current_pos < len(sample_preds):
+                    run_pred = sample_preds[current_pos]
+                    run_label = sample_labels[current_pos]
+                    run_correct = (run_pred == run_label)
 
-                if not isCorrect:
-                    errorType[real_type] = errorType.get(real_type, 0) + 1
+                    run_end = current_pos + 1
+                    while run_end < len(sample_preds):
+                        if (sample_preds[run_end] == run_pred) and ((sample_preds[run_end] == sample_labels[run_end]) == run_correct):
+                            run_end += 1
+                        else:
+                            break
+                    
+                    byte_offset = offset_val + current_pos
+                    real_type = "unknown"
+                    for entry in test_dataset.metadata:
+                        if entry['ds'] <= byte_offset < entry['de']:
+                            real_type = entry['t']
+                            break
+                    
+                    if not run_correct:
+                        errorType[real_type] = errorType.get(real_type, 0) + (run_end - current_pos)
 
-                if visualizer:
-                    majority_pred = "crypted" if pred_row.mean().item() > 0.5 else "clear" # TODO conversion en mean mais a retirer ça
-                    visualizer.addSegment(
-                        offset=offset_val,
-                        size=test_dataset.chunk_size,
-                        prediction=majority_pred,
-                        isCorrect=isCorrect,
-                        trueLabel=real_type,
-                    )
+                    if visualizer:
+                        visualizer.addSegment(
+                            offset=byte_offset,
+                            size=run_end - current_pos,
+                            prediction="crypted" if run_pred == 1 else "clear",
+                            isCorrect=bool(run_correct),
+                            trueLabel=real_type,
+                        )
+                    
+                    current_pos = run_end
 
     accuracy = correct / total if total > 0 else 0
     print("\n--- Détails des erreurs par type de données ---")
