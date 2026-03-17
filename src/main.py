@@ -2,6 +2,8 @@ import torch
 from torch.utils.data import DataLoader
 import sys
 
+from bisect import bisect_right
+from collections import defaultdict
 from dumpManager.RamDumpDataset import RamDumpDataset
 from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransformerClassifier
 import config as cfg
@@ -42,29 +44,21 @@ def evaluate(genereateExport=False):
         offset=512 #no off for tests
     )
 
+    meta_starts = [entry['ds'] for entry in test_dataset.metadata]
+
     BATCH_SIZE = 32
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
-    total_batches = len(test_loader)
-    print(f"Nombre d'échantillons à tester : {len(test_dataset)} (sur {total_batches} batchs)")
 
     visualizer = RaidVisualizerExporter() if genereateExport else None
 
     print("Démarrage de l'analyse...")
     total, correct = 0, 0
-    errorType = {}
+    errorType = defaultdict(int)
 
-    for batch_idx, (data, labels) in enumerate(test_loader):
-        data, labels = data.to(device), labels.to(device)
+    with torch.no_grad():
+        for batch_idx, (data, labels) in enumerate(test_loader):
+            data, labels = data.to(device), labels.to(device)
 
-        with torch.no_grad():
-            outputs = model(data)
-            probs = torch.sigmoid(outputs)
-            predictions = (probs > 0.5).float()
-
-    for batch_idx, (data, labels) in enumerate(test_loader):
-        data, labels = data.to(device), labels.to(device)
-
-        with torch.no_grad():
             logits = model(data)
             probs = torch.sigmoid(logits)
             predictions = (probs > 0.5).float()
@@ -72,42 +66,50 @@ def evaluate(genereateExport=False):
             total += labels.numel()
             correct += (predictions == labels.float()).sum().item()
 
+            batch_preds = predictions.cpu().numpy() #GPU --> CPU
+            batch_labels = labels.cpu().numpy()
+
             for i in range(len(data)):
                 global_idx = batch_idx * BATCH_SIZE + i
                 if global_idx >= len(test_dataset.samples):
                     break
 
                 offset_val, _ = test_dataset.samples[global_idx]
-                sample_preds = predictions[i].cpu().numpy()
-                sample_labels = labels[i].cpu().numpy()
+                sample_preds = batch_preds[i]
+                sample_labels = batch_labels[i]
 
                 current_pos = 0
-                while current_pos < len(sample_preds):
+                sample_len = len(sample_preds)
+                
+                while current_pos < sample_len:
                     run_pred = sample_preds[current_pos]
                     run_label = sample_labels[current_pos]
                     run_correct = (run_pred == run_label)
 
                     run_end = current_pos + 1
-                    while run_end < len(sample_preds):
+                    while run_end < sample_len:
                         if (sample_preds[run_end] == run_pred) and ((sample_preds[run_end] == sample_labels[run_end]) == run_correct):
                             run_end += 1
                         else:
                             break
                     
                     byte_offset = offset_val + current_pos
+                    segment_size = run_end - current_pos
+
+                    idx = bisect_right(meta_starts, byte_offset) - 1 #recherche bin juste
                     real_type = "unknown"
-                    for entry in test_dataset.metadata:
+                    if idx >= 0:
+                        entry = test_dataset.metadata[idx]
                         if entry['ds'] <= byte_offset < entry['de']:
                             real_type = entry['t']
-                            break
                     
                     if not run_correct:
-                        errorType[real_type] = errorType.get(real_type, 0) + (run_end - current_pos)
+                        errorType[real_type] += segment_size
 
                     if visualizer:
                         visualizer.addSegment(
                             offset=byte_offset,
-                            size=run_end - current_pos,
+                            size=segment_size,
                             prediction="crypted" if run_pred == 1 else "clear",
                             isCorrect=bool(run_correct),
                             trueLabel=real_type,
@@ -123,7 +125,7 @@ def evaluate(genereateExport=False):
     print(f"Exactitude totale : {accuracy:.2%} ({correct}/{total})")
 
     if visualizer:
-        visualizer.saveJson(filepath="raid_evaluation_visualization.json")
+        visualizer.saveJson(filepath=f"{cfg.VISUAL_EXPORT_DIR}/raid_evaluation_visualization.json")
 
 if __name__ == "__main__":
     evaluate(genereateExport=True)
