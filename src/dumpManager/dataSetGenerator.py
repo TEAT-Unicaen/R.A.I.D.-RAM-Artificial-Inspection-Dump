@@ -122,7 +122,7 @@ class MemoryLayout:
             })
 
     def write(self, data: bytes, label: str, originFile: str, extra: dict = None) -> int:
-        self._align()
+        #self._align()
         
         size = len(data)
         magic = self.rng.choice([0x4141, 0xDEAD, 0xBEEF, self.rng.getrandbits(16)])
