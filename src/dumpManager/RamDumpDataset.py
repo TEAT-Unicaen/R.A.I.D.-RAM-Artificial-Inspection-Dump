@@ -75,4 +75,6 @@ class RamDumpDataset(Dataset):
             temp_idx += 1
         
         
-        return x, y
+        # Also return the absolute start offset to allow stable aggregation
+        # across batch boundaries during evaluation/inference.
+        return x, y, data_start

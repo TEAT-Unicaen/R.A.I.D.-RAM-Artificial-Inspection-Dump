@@ -36,7 +36,11 @@ def train(learning_rate=1e-3, weight_decay=1e-2, num_epochs=5, batch_size=32):
         correct = 0
         total = 0
         start_time = time.time()
-        for x, y in dataloader:
+        for batch in dataloader:
+            if len(batch) == 3:
+                x, y, _ = batch
+            else:
+                x, y = batch
             x, y = x.to(device), y.to(device)
             
             optimizer.zero_grad()
