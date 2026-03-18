@@ -102,6 +102,10 @@ def evaluate(genereateExport=False):
                         entry = test_dataset.metadata[idx]
                         if entry['ds'] <= byte_offset < entry['de']:
                             real_type = entry['t']
+                        else:
+                            print(f"[ERROR] Gap détecté à l'offset {byte_offset}. Précédent finit à {entry['de']}")
+                    else:
+                        print(f"[ERROR] Offset {byte_offset} est avant la première entrée meta ({meta_starts[0] if meta_starts else 'N/A'})")
                     
                     if not run_correct:
                         errorType[real_type] += segment_size
