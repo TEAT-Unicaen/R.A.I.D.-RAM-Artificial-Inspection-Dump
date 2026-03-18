@@ -60,23 +60,31 @@ def evaluate(genereateExport=False):
             data, labels = data.to(device), labels.to(device)
 
             logits = model(data)
-            probs = torch.sigmoid(logits)
-            predictions = (probs > 0.5).float()
 
+            # Convert logits into probs
+            probs = torch.sigmoid(logits) # 32*512 | batch_size * sequence_length -> Tensor
+            predictions = (probs > 0.5).float() # batch_size * sequence_length
+            prob_confidence = torch.abs(probs - 0.5) * 2 # Convertit [0.5, 1.0] en [0.0, 1.0] et [0.0, 0.5] en [1.0, 0.0] -> Normalisation
+
+            # Global accuracy
             total += labels.numel()
             correct += (predictions == labels.float()).sum().item()
 
+            # Details per sample
             batch_preds = predictions.cpu().numpy() #GPU --> CPU
             batch_labels = labels.cpu().numpy()
 
-            for i in range(len(data)):
-                global_idx = batch_idx * BATCH_SIZE + i
+            for batch in range(len(data)):
+
+                # Calculate the global index of the batch in the dataset
+                global_idx = batch_idx * BATCH_SIZE + batch
                 if global_idx >= len(test_dataset.samples):
                     break
 
+                # Gets the byte offset for the current batch
                 offset_val, _ = test_dataset.samples[global_idx]
-                sample_preds = batch_preds[i]
-                sample_labels = batch_labels[i]
+                sample_preds = batch_preds[batch]
+                sample_labels = batch_labels[batch]
 
                 current_pos = 0
                 sample_len = len(sample_preds)
