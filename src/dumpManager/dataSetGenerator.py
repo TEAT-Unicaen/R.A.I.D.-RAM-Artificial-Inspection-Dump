@@ -107,8 +107,19 @@ class MemoryLayout:
             alignment = self.rng.choice([1, 4, 8, 16, 32, 64])
         else:
             alignment = self.baseAlignement
-        
+
+        old_offset = self.offset
         self.offset = (self.offset + alignment - 1) & ~(alignment - 1)
+
+        gap_size = self.offset - old_offset
+        if gap_size > 0 and self.metadata:
+            self.metadata.append({
+                "t": "NOISE",
+                "ds": old_offset,
+                "de": self.offset,
+                "s": gap_size,
+                "f": "gap"
+            })
 
     def write(self, data: bytes, label: str, originFile: str, extra: dict = None) -> int:
         self._align()
@@ -281,7 +292,7 @@ if __name__ == "__main__":
         
         print(f"Fichiers sources trouvés : {len(files)}")
 
-        generator = DumpGenerator(size_mb=5, seed=4242)
+        generator = DumpGenerator(size_mb=10, seed=42)
         ram_bin, metadata = generator.run(files, noise=True, noiseLevel=0.2, balanceMode="size")
 
         bin_file = os.path.join(output_path, "ram_dump.bin")
