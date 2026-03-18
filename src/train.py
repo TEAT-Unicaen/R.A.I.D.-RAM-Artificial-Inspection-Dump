@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import time
 from torch.utils.data import DataLoader
 
 from dumpManager.RamDumpDataset import RamDumpDataset
@@ -14,7 +15,7 @@ def train(learning_rate=1e-3, weight_decay=1e-2, num_epochs=5, batch_size=32):
         bin_path=cfg.BIN_PATH, 
         meta_path=cfg.META_PATH, 
         chunk_size=512,
-        offset=128
+        offset=512
     )
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, pin_memory=True, num_workers=4)
@@ -34,7 +35,7 @@ def train(learning_rate=1e-3, weight_decay=1e-2, num_epochs=5, batch_size=32):
         total_loss = 0
         correct = 0
         total = 0
-        
+        start_time = time.time()
         for x, y in dataloader:
             x, y = x.to(device), y.to(device)
             
@@ -52,7 +53,8 @@ def train(learning_rate=1e-3, weight_decay=1e-2, num_epochs=5, batch_size=32):
             correct += (preds == y).sum().item()
             total += y.numel()
             
-        print(f"Epoch {epoch+1} | Loss: {total_loss/len(dataloader):.4f} | Acc: {correct/total:.2%}")
+        end_time = time.time()
+        print(f"Epoch {epoch+1} | Loss: {total_loss/len(dataloader):.4f} | Acc: {correct/total:.2%} | Time: {end_time - start_time:.2f}s")
 
     torch.save(model.state_dict(), cfg.MODEL_PATH)
     print(f"Modèle sauvegardé sous : {cfg.MODEL_PATH}")
@@ -61,6 +63,6 @@ def train(learning_rate=1e-3, weight_decay=1e-2, num_epochs=5, batch_size=32):
 if __name__ == "__main__":
     import os
     if os.path.exists(cfg.BIN_PATH) and os.path.exists(cfg.META_PATH):
-        train(num_epochs=20, batch_size=32)
+        train(num_epochs=15, batch_size=32)
     else:
         print("Erreur : Données introuvables. Lancez d'abord le générateur (DumpGenerator).")
