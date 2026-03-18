@@ -1,8 +1,8 @@
 import torch
 from torch.utils.data import DataLoader
 import sys
+import numpy as np
 
-from bisect import bisect_right
 from collections import defaultdict
 from dumpManager.RamDumpDataset import RamDumpDataset
 from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransformerClassifier
@@ -45,6 +45,10 @@ def evaluate(genereateExport=False):
     )
 
     meta_starts = [entry['ds'] for entry in test_dataset.metadata]
+    meta_starts_np = np.asarray(meta_starts, dtype=np.int64)
+    meta_ds_np = np.asarray([entry['ds'] for entry in test_dataset.metadata], dtype=np.int64)
+    meta_de_np = np.asarray([entry['de'] for entry in test_dataset.metadata], dtype=np.int64)
+    meta_types_np = np.asarray([entry['t'] for entry in test_dataset.metadata], dtype=object)
 
     BATCH_SIZE = 32
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
@@ -64,70 +68,102 @@ def evaluate(genereateExport=False):
             # Convert logits into probs
             probs = torch.sigmoid(logits) # 32*512 | batch_size * sequence_length -> Tensor
             predictions = (probs > 0.5).float() # batch_size * sequence_length
-            prob_confidence = torch.abs(probs - 0.5) * 2 # Convertit [0.5, 1.0] en [0.0, 1.0] et [0.0, 0.5] en [1.0, 0.0] -> Normalisation
 
             # Global accuracy
             total += labels.numel()
             correct += (predictions == labels.float()).sum().item()
 
             # Details per sample
-            batch_preds = predictions.cpu().numpy() #GPU --> CPU
-            batch_labels = labels.cpu().numpy()
+            batch_start = batch_idx * BATCH_SIZE
+            batch_end = min(batch_start + data.size(0), len(test_dataset.samples))
+            if batch_start >= batch_end:
+                continue
 
-            for batch in range(len(data)):
+            # Calculates the byte offset in the dataset for each sample in the batch
+            effective_batch_size = batch_end - batch_start
+            batch_offsets = np.fromiter(
+                (test_dataset.samples[i][0] for i in range(batch_start, batch_end)),
+                dtype=np.int64,
+                count=effective_batch_size,
+            )
 
-                # Calculate the global index of the batch in the dataset
-                global_idx = batch_idx * BATCH_SIZE + batch
-                if global_idx >= len(test_dataset.samples):
-                    break
+            # Convert predictions and labels to CPU numpy arrays for analysis
+            batch_preds = predictions[:effective_batch_size].cpu().numpy().astype(np.int8) # GPU --> CPU
+            batch_labels = labels[:effective_batch_size].cpu().numpy().astype(np.int8)
+            batch_correct = batch_preds == batch_labels
 
-                # Gets the byte offset for the current batch
-                offset_val, _ = test_dataset.samples[global_idx]
-                sample_preds = batch_preds[batch]
-                sample_labels = batch_labels[batch]
+            # Each run of consecutive predictions (clear or crypted) is analyzed to determine its byte offset, size, correctness, and real type.
+            sample_len = batch_preds.shape[1]
+            transitions = (np.diff(batch_preds, axis=1) != 0) | (np.diff(batch_correct.astype(np.int8), axis=1) != 0)
+            run_start_mask = np.zeros_like(batch_correct, dtype=bool)
+            run_start_mask[:, 0] = True
+            run_start_mask[:, 1:] = transitions
 
-                current_pos = 0
-                sample_len = len(sample_preds)
-                
-                while current_pos < sample_len:
-                    run_pred = sample_preds[current_pos]
-                    run_label = sample_labels[current_pos]
-                    run_correct = (run_pred == run_label)
+            # Flatten arrays to simplify run analysis across the entire batch
+            flat_preds = batch_preds.reshape(-1)
+            flat_correct = batch_correct.reshape(-1)
+            run_starts_flat = np.flatnonzero(run_start_mask.reshape(-1))
+            run_ends_flat = np.concatenate((run_starts_flat[1:], [flat_preds.size]))
 
-                    run_end = current_pos + 1
-                    while run_end < sample_len:
-                        if (sample_preds[run_end] == run_pred) and ((sample_preds[run_end] == sample_labels[run_end]) == run_correct):
-                            run_end += 1
-                        else:
-                            break
-                    
-                    byte_offset = offset_val + current_pos
-                    segment_size = run_end - current_pos
+            # For each run, calculate its byte offset, size, predicted class, correctness, and determine the real type based on metadata.
+            segment_sizes = run_ends_flat - run_starts_flat
+            sample_indices = run_starts_flat // sample_len
+            offsets_in_sample = run_starts_flat % sample_len
+            byte_offsets = batch_offsets[sample_indices] + offsets_in_sample
+            run_preds = flat_preds[run_starts_flat]
+            run_correct = flat_correct[run_starts_flat]
 
-                    idx = bisect_right(meta_starts, byte_offset) - 1 #recherche bin juste
-                    real_type = "unknown"
-                    if idx >= 0:
-                        entry = test_dataset.metadata[idx]
-                        if entry['ds'] <= byte_offset < entry['de']:
-                            real_type = entry['t']
-                        else:
-                            print(f"[ERROR] Gap détecté à l'offset {byte_offset}. Précédent finit à {entry['de']}")
-                    else:
-                        print(f"[ERROR] Offset {byte_offset} est avant la première entrée meta ({meta_starts[0] if meta_starts else 'N/A'})")
-                    
-                    if not run_correct:
-                        errorType[real_type] += segment_size
+            # Determine the real type for each run based on the byte offset and metadata -> Label
+            idxs = np.searchsorted(meta_starts_np, byte_offsets, side="right") - 1
+            real_types = np.full(byte_offsets.shape, "unknown", dtype=object)
 
-                    if visualizer:
-                        visualizer.addSegment(
-                            offset=byte_offset,
-                            size=segment_size,
-                            prediction="crypted" if run_pred == 1 else "clear",
-                            isCorrect=bool(run_correct),
-                            trueLabel=real_type,
-                        )
-                    
-                    current_pos = run_end
+            # Validates that the found metadata index is correct (the byte offset falls within the ds-de range of the metadata entry). If not, the run is marked as "unknown" and an error is logged.
+            valid_idx_mask = idxs >= 0
+            if np.any(valid_idx_mask):
+                valid_positions = np.flatnonzero(valid_idx_mask)
+                valid_meta_idx = idxs[valid_idx_mask]
+                valid_offsets = byte_offsets[valid_idx_mask]
+                in_range_mask = (meta_ds_np[valid_meta_idx] <= valid_offsets) & (valid_offsets < meta_de_np[valid_meta_idx])
+
+                if np.any(in_range_mask):
+                    in_range_positions = valid_positions[in_range_mask]
+                    in_range_meta_idx = valid_meta_idx[in_range_mask]
+                    real_types[in_range_positions] = meta_types_np[in_range_meta_idx]
+
+                out_of_range_count = int(np.count_nonzero(~in_range_mask))
+                if out_of_range_count > 0:
+                    print(f"[ERROR] {out_of_range_count} offsets tombent dans un gap de metadata sur ce batch.")
+
+            # Check for invalid metadata indices (offsets before the first metadata entry)
+            invalid_count = int(np.count_nonzero(~valid_idx_mask))
+            if invalid_count > 0:
+                print(f"[ERROR] {invalid_count} offsets sont avant la première entrée meta ({meta_starts[0] if meta_starts else 'N/A'}).")
+
+            # Error analysis: For runs that are incorrectly classified, we accumulate the total size of errors per real type to identify which types of data are most problematic for the model.
+            error_mask = ~run_correct
+            if np.any(error_mask):
+                err_types = real_types[error_mask]
+                err_sizes = segment_sizes[error_mask]
+                unique_types, inverse_idx = np.unique(err_types, return_inverse=True)
+                weighted_errors = np.bincount(inverse_idx, weights=err_sizes)
+                for err_type, err_count in zip(unique_types, weighted_errors):
+                    errorType[err_type] += int(err_count)
+
+            if visualizer:
+                for byte_offset, segment_size, run_pred, is_correct, real_type in zip(
+                    byte_offsets,
+                    segment_sizes,
+                    run_preds,
+                    run_correct,
+                    real_types,
+                ):
+                    visualizer.addSegment(
+                        offset=int(byte_offset),
+                        size=int(segment_size),
+                        prediction="crypted" if run_pred == 1 else "clear",
+                        isCorrect=bool(is_correct),
+                        trueLabel=real_type,
+                    )
 
     accuracy = correct / total if total > 0 else 0
     print("\n--- Détails des erreurs par type de données ---")
