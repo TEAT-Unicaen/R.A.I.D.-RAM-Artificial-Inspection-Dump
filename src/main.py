@@ -219,8 +219,10 @@ def evaluate(genereateExport=False):
     aggregated_correct = int(np.count_nonzero(agg_pred[covered_mask] == agg_label[covered_mask])) if aggregated_total > 0 else 0
     aggregated_accuracy = (aggregated_correct / aggregated_total) if aggregated_total > 0 else 0
     print("\n--- Détails des erreurs par type de données ---")
+    total_errors = sum(errorType.values())
     for data_type, count in sorted(errorType.items(), key=lambda x: -x[1]):
-        print(f"  Type: {data_type} | Erreurs: {count}")
+        percentage = (count / total_errors * 100) if total_errors > 0 else 0
+        print(f"  Type: {data_type:<15} | Erreurs: {count:<5} | Proportion: {percentage:>6.2f}%")
     print(f"\n--- Évaluation terminée ---")
     print(f"Exactitude brute (avant vote): {accuracy:.2%} ({correct}/{total})")
     print(f"Exactitude agrégée (vote pondéré): {aggregated_accuracy:.2%} ({aggregated_correct}/{aggregated_total})")
