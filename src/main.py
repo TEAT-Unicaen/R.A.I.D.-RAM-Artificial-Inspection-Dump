@@ -41,7 +41,7 @@ def evaluate(genereateExport=False):
         bin_path=cfg.BIN_PATH,
         meta_path=cfg.META_PATH,
         chunk_size=512,
-        offset=512
+        offset=128
     )
 
     # Creates buffers for metadata corresponding to each byte offset
