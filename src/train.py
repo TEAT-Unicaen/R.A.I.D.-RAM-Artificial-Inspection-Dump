@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import time
 from torch.utils.data import DataLoader
 
 from dumpManager.RamDumpDataset import RamDumpDataset
@@ -9,12 +10,12 @@ from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransfo
 
 import config as cfg
 
-def train(learning_rate=0.001, num_epochs=5, batch_size=32):
+def train(learning_rate=1e-3, weight_decay=1e-2, num_epochs=5, batch_size=32):
     dataset = RamDumpDataset(
         bin_path=cfg.BIN_PATH, 
         meta_path=cfg.META_PATH, 
         chunk_size=512,
-        offset=128
+        offset=512
     )
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, pin_memory=True, num_workers=4)
@@ -24,7 +25,7 @@ def train(learning_rate=0.001, num_epochs=5, batch_size=32):
     model.to(device)
 
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     print(f"--- Entraînement sur {device} ---")
 
     model.train()
@@ -34,9 +35,13 @@ def train(learning_rate=0.001, num_epochs=5, batch_size=32):
         total_loss = 0
         correct = 0
         total = 0
-        
-        for x, y in dataloader:
-            x, y = x.to(device), y.to(device).unsqueeze(1)
+        start_time = time.time()
+        for batch in dataloader:
+            if len(batch) == 3:
+                x, y, _ = batch
+            else:
+                x, y = batch
+            x, y = x.to(device), y.to(device)
             
             optimizer.zero_grad()
             
@@ -50,9 +55,10 @@ def train(learning_rate=0.001, num_epochs=5, batch_size=32):
             total_loss += loss.item()
             preds = (torch.sigmoid(logits) > 0.5).float()
             correct += (preds == y).sum().item()
-            total += y.size(0)
+            total += y.numel()
             
-        print(f"Epoch {epoch+1} | Loss: {total_loss/len(dataloader):.4f} | Acc: {correct/total:.2%}")
+        end_time = time.time()
+        print(f"Epoch {epoch+1} | Loss: {total_loss/len(dataloader):.4f} | Acc: {correct/total:.2%} | Time: {end_time - start_time:.2f}s")
 
     torch.save(model.state_dict(), cfg.MODEL_PATH)
     print(f"Modèle sauvegardé sous : {cfg.MODEL_PATH}")
@@ -61,6 +67,6 @@ def train(learning_rate=0.001, num_epochs=5, batch_size=32):
 if __name__ == "__main__":
     import os
     if os.path.exists(cfg.BIN_PATH) and os.path.exists(cfg.META_PATH):
-        train(num_epochs=20, batch_size=32)
+        train(num_epochs=15, batch_size=32)
     else:
         print("Erreur : Données introuvables. Lancez d'abord le générateur (DumpGenerator).")

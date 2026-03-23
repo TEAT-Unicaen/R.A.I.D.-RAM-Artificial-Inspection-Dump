@@ -107,11 +107,22 @@ class MemoryLayout:
             alignment = self.rng.choice([1, 4, 8, 16, 32, 64])
         else:
             alignment = self.baseAlignement
-        
+
+        old_offset = self.offset
         self.offset = (self.offset + alignment - 1) & ~(alignment - 1)
 
+        gap_size = self.offset - old_offset
+        if gap_size > 0 and self.metadata:
+            self.metadata.append({
+                "t": "NOISE",
+                "ds": old_offset,
+                "de": self.offset,
+                "s": gap_size,
+                "f": "gap"
+            })
+
     def write(self, data: bytes, label: str, originFile: str, extra: dict = None) -> int:
-        self._align()
+        #self._align()
         
         size = len(data)
         magic = self.rng.choice([0x4141, 0xDEAD, 0xBEEF, self.rng.getrandbits(16)])
@@ -129,9 +140,7 @@ class MemoryLayout:
 
             entry = {
                 "t": label,
-                "hs": headerStart,
-                "he": dataStart,
-                "ds": dataStart,
+                "ds": headerStart,
                 "de": dataStart + size,
                 "s": size,
                 "f": os.path.basename(originFile)
@@ -154,8 +163,6 @@ class MemoryLayout:
             
             self.metadata.append({
                 "t": "NOISE",
-                "hs": self.offset,
-                "he": self.offset,
                 "ds": self.offset,
                 "de": self.offset + gap,
                 "s": gap,
@@ -187,14 +194,42 @@ class DumpGenerator:
         else:
             return "BINARY_OTHER"
 
-    def run(self, files: list, noise: bool = False, noiseLevel: float = 0.5, fragmentation: bool = True, balanceMode: str = "size"):
+    def _computeTargets(self, balanceMode, labels:list, weights: dict):
+        """
+        Retourne un dict {label: targetBytes}.
+        
+        Modes:
+        "size"    → répartition égale (octets)
+        "count"   → répartition égale en nombre de segments
+        "weights" → pondération explicite, weights doit sommer à ~1.0
+                    ex: {"BINARY_IMAGE": 0.8, "ENCRYPTED": 0.1, "BASE64": 0.1}
+        """
+        if balanceMode == "size":
+            share = self.totalBytes / len(labels)
+            return {label: share for label in labels}
+        elif balanceMode == "count":
+            share = (self.totalBytes // len(labels)) // 512 * 512
+            return {label: share for label in labels}
+        elif balanceMode == "weights":
+            if not weights:
+                raise ValueError("balanceMode='weights' nécessite un dict `weights`")
+            totalW = sum(weights.values())
+            return {
+                label: int(self.totalBytes * weights.get(label, 0) / totalW)
+                for label in labels
+            }
+        else:
+            raise ValueError(f"balanceMode inconnu: {balanceMode}")
+
+    def run(self, files: list, noise: bool = False, noiseLevel: float = 0.5, fragmentation: bool = True, balanceMode: str = "size", weights: dict = None):
         self.rng.shuffle(files)
 
         labels_to_balance = ["BASE64", "BINARY_IMAGE", "BINARY_PDF", "BINARY_TEXT", "COMPRESSED", "DECODED", "ENCRYPTED"]
         
-        targetBytesPerType = 0
-        if balanceMode == "size":
-            targetBytesPerType = self.totalBytes // len(labels_to_balance)
+        # targetBytesPerType = 0
+        # if balanceMode == "size":
+        #     targetBytesPerType = self.totalBytes // len(labels_to_balance)
+        target = self._computeTargets(balanceMode, labels_to_balance, weights)
         
         kernelCount = 0
         for file_path in files:
@@ -239,7 +274,7 @@ class DumpGenerator:
             written_something = False
             
             for label, func in specific_tasks:
-                if self.stats[label] < targetBytesPerType:
+                if self.stats[label] < target[label]:
                     data, extra_info = func()
                     if data:
                         written = self.mem.write(data, label, file_path, extra_info)
@@ -249,7 +284,7 @@ class DumpGenerator:
             
             if not written_something:
                 for label, func in generic_tasks:
-                    if self.stats[label] < targetBytesPerType:
+                    if self.stats[label] < target[label]:
                         data, extra_info = func()
                         if data:
                             written = self.mem.write(data, label, file_path, extra_info)
@@ -257,7 +292,7 @@ class DumpGenerator:
                             written_something = True
                             break
 
-            if self.rng.random() > 0.7:
+            if self.rng.random() > 0.7 and noise:
                 sysType = self.rng.choice(['POINTERS', 'STRINGS'])
                 sysDat = self.proc.generatePointers(20) if sysType == "POINTERS" else self.proc.generateRandomStrings(10)
                 written = self.mem.write(sysDat, "SYSTEM", f"kernel_memory_{kernelCount}", {"system_type": sysType})
@@ -285,8 +320,25 @@ if __name__ == "__main__":
         
         print(f"Fichiers sources trouvés : {len(files)}")
 
-        generator = DumpGenerator(size_mb=5, seed=4242)
+        generator = DumpGenerator(size_mb=10, seed=42)
+
+        #Dataset équilibré exemple:
         ram_bin, metadata = generator.run(files, noise=True, noiseLevel=0.2, balanceMode="size")
+
+        #DatasetBiaisé exemple:
+        """ 
+        ram_bin, metadata = generator.run(
+            files, 
+            noise=False, 
+            noiseLevel=0.2, 
+            balanceMode="weights",     
+            weights={
+            "BINARY_IMAGE": 1.00,
+            "BINARY_TEXT":  0.10,
+            "ENCRYPTED":    0.10,
+            # Les labels absents du dict auront un quota de 0
+            })
+        """
 
         bin_file = os.path.join(output_path, "ram_dump.bin")
         meta_file = os.path.join(output_path, "metadata.json")
