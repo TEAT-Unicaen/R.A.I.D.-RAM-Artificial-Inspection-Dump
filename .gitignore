@@ -38,3 +38,4 @@ data/
 *.synctex.gz
 *.toc
 *.out
+*.bbl-SAVE-ERROR

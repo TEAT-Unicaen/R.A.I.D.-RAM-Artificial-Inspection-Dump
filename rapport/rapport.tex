@@ -29,27 +29,53 @@
         Le projet R.A.I.D. (RAM Artificial Inspection Dump) a pour objectif de développer un outil d'inspection de la mémoire RAM d'un système informatique.
     }
 
+    \newpage
+    
     \tableofcontents
     \newpage
 
     \chapter{Introduction}
-    \chapter{Contexte}
-    \section{La mémoire vive (R.A.M.)}
-    \section{Le transformer}
-    On a utilise le document de référence \citefull{attention_is_all_you_need} pour expliquer le fonctionnement du transformer.
-    \subsection{L'architecture Encodeur}
-    \subsection{L'input embedding}
-    \subsection{Le mécanisme d'attention}
-    \subsubsection{Self-attention}
-    \subsubsection{Multi-head attention}
-    \subsection{Le feed-forward}
-    \subsection{La sortie}
-    \section{Le "Scrapping"}
-    \chapter{Méthodologie}
+    \section{Présentation du projet R.A.I.D.}
+    \section{Enjeux de l'inspection automatisée de la mémoire vive}
+    \section{Objectifs et problématique : Identification de segments par Deep Learning}
+
+    \chapter{État de l'art et Contexte Technique}
+    \section{Architecture et gestion de la mémoire vive (RAM)}
+    \section{Le modèle Transformer : Au-delà du NLP}
+    \citefull{attention_is_all_you_need}
+    \subsection{Fondements de l'architecture Encodeur}
+    \subsection{Mécanismes d'attention et encodage positionnel}
+    \section{Classification de flux binaire : Défis et approches existantes}
+
+    \chapter{Constitution du Jeu de Données (Dataset)}
+    \section{Stratégie de "Scraping" multi-sources (PDF, Images, Wiki)}
+    \section{Génération synthétique de dumps mémoire}
+    \subsection{Simulation de la mise en page mémoire (Memory Layout)}
+    \subsection{Modélisation du bruit et de la fragmentation des données}
+    \section{Labellisation et taxonomie des types de données}
+    \section{Pipeline de prétraitement : De l'octet brut au tenseur}
+
+    \chapter{Architecture du Modèle et Entraînement}
+    \section{Conception du BytesTransformerClassifier}
+    \subsection{Embedding des 256 valeurs d'octets}
+    \subsection{Intégration du jeton [CLS] pour la classification globale}
+    \section{Stratégie d'entraînement par fenêtrage (Chunking)}
+    \section{Optimisation des hyperparamètres (AdamW, Dropout, LR)}
+
+    \chapter{Évaluation et Outils d'Analyse}
+    \section{Méthodologie de validation : Vote pondéré par confiance}
+    \section{Analyse des performances par type de données}
+    \section{Développement de RaidVisualizer : Interprétation visuelle}
+
+    \chapter{Résultats et Discussion}
+    \section{Analyse de l'exactitude (Brute vs Agrégée)}
+    \section{Étude des cas d'erreurs et limites du modèle}
+    \section{Perspectives : Vers une détection de malwares en mémoire}
+
+    \chapter{Répartition des tâches}
 
 
 
-
-    \printbibliography[title={Références}, heading=bibintoc]
+    \printbibliography[title={Bibliographie}, heading=bibintoc]
 
 \end{document}
