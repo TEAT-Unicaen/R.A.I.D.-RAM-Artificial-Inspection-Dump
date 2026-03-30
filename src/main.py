@@ -181,11 +181,12 @@ def evaluate(genereateExport=False):
                 print(f"[ERROR] {out_of_range_count} offsets tombent dans un gap de metadata après agrégation.")
 
         # Some error handling for invalid global offsets
-        invalid_count = int(np.count_nonzero(~valid_idx_mask))
-        if invalid_count > 0:
-            print(f"[ERROR] {invalid_count} offsets sont avant la première entrée meta ({meta_starts[0] if meta_starts else 'N/A'}).")
+        typeTotal = defaultdict(int)
+        unique_types_all, inverse_idx_all = np.unique(real_types, return_inverse=True)
+        weighted_totals = np.bincount(inverse_idx_all, weights=segment_sizes)
+        for t, total_size in zip(unique_types_all, weighted_totals):
+            typeTotal[t] += int(total_size)
 
-        # Error analysis by real type after global vote.
         error_mask = ~run_correct
         if np.any(error_mask):
             err_types = real_types[error_mask]
@@ -221,8 +222,14 @@ def evaluate(genereateExport=False):
     print("\n--- Détails des erreurs par type de données ---")
     total_errors = sum(errorType.values())
     for data_type, count in sorted(errorType.items(), key=lambda x: -x[1]):
-        percentage = (count / total_errors * 100) if total_errors > 0 else 0
-        print(f"  Type: {data_type:<15} | Erreurs: {count:<5} | Proportion: {percentage:>6.2f}%")
+        proportion_global = (count / total_errors * 100) if total_errors > 0 else 0
+        type_total = typeTotal.get(data_type, 0)
+        proportion_type = (count / type_total * 100) if type_total > 0 else 0
+        print(
+            f"  Type: {data_type:<15} | Erreurs: {count:<8} "
+            f"| Prop. globale: {proportion_global:>6.2f}% "
+            f"| Erreurs/Type: {proportion_type:>6.2f}%"
+        )
     print(f"\n--- Évaluation terminée ---")
     print(f"Exactitude brute (avant vote): {accuracy:.2%} ({correct}/{total})")
     print(f"Exactitude agrégée (vote pondéré): {aggregated_accuracy:.2%} ({aggregated_correct}/{aggregated_total})")
