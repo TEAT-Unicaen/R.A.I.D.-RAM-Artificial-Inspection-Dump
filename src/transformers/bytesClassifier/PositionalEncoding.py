@@ -2,11 +2,13 @@ import torch
 import torch.nn as nn
 import math
 
+import config as cfg
+
 class PositionalEncoding(nn.Module):
     """
     Sans cette classe, un modèle Transformer voit les mots comme un "sac de mots" sans ordre, car il traite tout en parallèle
     """
-    def __init__(self, d_model: int, max_len:int =5000, dropout: float=0.1):
+    def __init__(self, d_model: int, max_len: int = cfg.MODEL_CONFIG["max_len"], dropout: float = cfg.MODEL_CONFIG["dropout"]):
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
         pe = torch.zeros(max_len, d_model)

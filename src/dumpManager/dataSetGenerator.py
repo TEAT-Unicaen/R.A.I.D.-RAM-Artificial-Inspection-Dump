@@ -13,6 +13,8 @@ import cv2
 import numpy as np
 import json
 
+import config as cfg
+
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp'}
 TEXT_EXTENSIONS = {'.txt', '.json', '.xml', '.csv', '.log', '.md'}
 
@@ -46,8 +48,11 @@ class DataProcessor:
                 "total_pixels": len(rawPxls)
             }
             
-            if fragment and len(rawPxls) > 5000:
-                fragSize = self.rng.randint(5000, min(200000, len(rawPxls)))
+            if fragment and len(rawPxls) > cfg.GENERATOR_CONFIG["image_fragment_threshold"]:
+                fragSize = self.rng.randint(
+                    cfg.GENERATOR_CONFIG["image_fragment_min"],
+                    min(cfg.GENERATOR_CONFIG["image_fragment_max"], len(rawPxls)),
+                )
                 start = self.rng.randint(0, len(rawPxls) - fragSize)
                 metadata["fragment_start"] = start
                 metadata["fragment_size"] = fragSize
@@ -95,7 +100,7 @@ class DataProcessor:
     
 class MemoryLayout:
 
-    def __init__(self, totalSize: int, alignment: int = 16):
+    def __init__(self, totalSize: int, alignment: int = cfg.GENERATOR_CONFIG["memory_alignment"]):
         self.ram = bytearray(totalSize)
         self.offset = 0
         self.baseAlignement = alignment
@@ -156,7 +161,7 @@ class MemoryLayout:
         return 0
     
     def addNoise(self, rng: random.Random):
-        gap = rng.randint(32, 256)
+        gap = rng.randint(cfg.GENERATOR_CONFIG["noise_gap_min"], cfg.GENERATOR_CONFIG["noise_gap_max"])
         if self.offset + gap < len(self.ram):
             noise = bytes([rng.getrandbits(8) if rng.random() > 0.3 else 0x00 for _ in range(gap)])
             self.ram[self.offset : self.offset + gap] = noise
@@ -208,7 +213,7 @@ class DumpGenerator:
             share = self.totalBytes / len(labels)
             return {label: share for label in labels}
         elif balanceMode == "count":
-            share = (self.totalBytes // len(labels)) // 512 * 512
+            share = (self.totalBytes // len(labels)) // cfg.GENERATOR_CONFIG["share_quantum"] * cfg.GENERATOR_CONFIG["share_quantum"]
             return {label: share for label in labels}
         elif balanceMode == "weights":
             if not weights:
@@ -243,9 +248,9 @@ class DumpGenerator:
                     fullContent = f.read()
             except Exception: continue
 
-            if fragmentation and len(fullContent) > 1024:
-                max_frag = min(500000, len(fullContent))
-                frag_size = self.rng.randint(1024, max_frag)
+            if fragmentation and len(fullContent) > cfg.GENERATOR_CONFIG["chunk_fragment_min"]:
+                max_frag = min(cfg.GENERATOR_CONFIG["chunk_fragment_max"], len(fullContent))
+                frag_size = self.rng.randint(cfg.GENERATOR_CONFIG["chunk_fragment_min"], max_frag)
                 start = self.rng.randint(0, max(0, len(fullContent) - frag_size))
                 content = fullContent[start : start + frag_size]
             else:
@@ -320,10 +325,18 @@ if __name__ == "__main__":
         
         print(f"Fichiers sources trouvés : {len(files)}")
 
-        generator = DumpGenerator(size_mb=10, seed=42)
+        generator = DumpGenerator(
+            size_mb=cfg.GENERATOR_CONFIG["default_size_mb"],
+            seed=cfg.GENERATOR_CONFIG["default_seed"],
+        )
 
         #Dataset équilibré exemple:
-        ram_bin, metadata = generator.run(files, noise=True, noiseLevel=0.2, balanceMode="size")
+        ram_bin, metadata = generator.run(
+            files,
+            noise=True,
+            noiseLevel=cfg.GENERATOR_CONFIG["default_noise_level"],
+            balanceMode=cfg.GENERATOR_CONFIG["default_balance_mode"],
+        )
 
         #DatasetBiaisé exemple:
         """ 

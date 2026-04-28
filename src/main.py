@@ -19,13 +19,14 @@ def evaluate(genereateExport=False):
         print(f"--- Évaluation sur {device} ---")
 
     print("Construction du modèle...")
-    model = BytesTransformerClassifier(
-        dim_model=128, num_heads=4, num_layers=2
-    )
-    model.to(device)
-
     try:
-        model.load_state_dict(torch.load(cfg.MODEL_PATH, map_location=device))
+        checkpoint = torch.load(cfg.MODEL_PATH, map_location=device)
+        model_config = checkpoint.get("model_config", cfg.MODEL_CONFIG) if isinstance(checkpoint, dict) else cfg.MODEL_CONFIG
+        model = BytesTransformerClassifier(**model_config)
+        model.to(device)
+
+        state_dict = checkpoint["model_state_dict"] if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint else checkpoint
+        model.load_state_dict(state_dict)
         print(f"Poids chargés avec succès depuis : {cfg.MODEL_PATH}")
     except FileNotFoundError:
         print(f"ERREUR CRITIQUE : Le fichier modèle '{cfg.MODEL_PATH}' est introuvable.")
@@ -40,8 +41,8 @@ def evaluate(genereateExport=False):
     test_dataset = RamDumpDataset(
         bin_path=cfg.BIN_PATH,
         meta_path=cfg.META_PATH,
-        chunk_size=512,
-        offset=128
+        chunk_size=cfg.EVAL_DATASET_CONFIG["chunk_size"],
+        offset=cfg.EVAL_DATASET_CONFIG["offset"]
     )
 
     # Creates buffers for metadata corresponding to each byte offset
@@ -51,8 +52,13 @@ def evaluate(genereateExport=False):
     meta_de_np = np.asarray([entry['de'] for entry in test_dataset.metadata], dtype=np.int64)
     meta_types_np = np.asarray([entry['t'] for entry in test_dataset.metadata], dtype=object)
 
-    BATCH_SIZE = 32
-    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=cfg.EVAL_CONFIG["batch_size"],
+        shuffle=False,
+        num_workers=cfg.EVAL_LOADER_CONFIG["num_workers"],
+        pin_memory=cfg.EVAL_LOADER_CONFIG["pin_memory"],
+    )
 
     visualizer = RaidVisualizerExporter() if genereateExport else None
 

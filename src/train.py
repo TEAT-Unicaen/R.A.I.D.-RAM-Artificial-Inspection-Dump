@@ -10,17 +10,28 @@ from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransfo
 
 import config as cfg
 
-def train(learning_rate=1e-3, weight_decay=1e-2, num_epochs=5, batch_size=32):
+def train(
+    learning_rate=cfg.TRAIN_CONFIG["learning_rate"],
+    weight_decay=cfg.TRAIN_CONFIG["weight_decay"],
+    num_epochs=cfg.TRAIN_CONFIG["num_epochs"],
+    batch_size=cfg.TRAIN_CONFIG["batch_size"],
+):
     dataset = RamDumpDataset(
         bin_path=cfg.BIN_PATH, 
         meta_path=cfg.META_PATH, 
-        chunk_size=512,
-        offset=512
+        chunk_size=cfg.DATASET_CONFIG["chunk_size"],
+        offset=cfg.DATASET_CONFIG["offset"]
     )
 
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, pin_memory=True, num_workers=4)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=cfg.TRAIN_LOADER_CONFIG["num_workers"],
+        pin_memory=cfg.TRAIN_LOADER_CONFIG["pin_memory"],
+    )
 
-    model = BytesTransformerClassifier(dim_model=128, num_heads=4, num_layers=2, dropout=0.1)
+    model = BytesTransformerClassifier(**cfg.MODEL_CONFIG)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
@@ -60,13 +71,18 @@ def train(learning_rate=1e-3, weight_decay=1e-2, num_epochs=5, batch_size=32):
         end_time = time.time()
         print(f"Epoch {epoch+1} | Loss: {total_loss/len(dataloader):.4f} | Acc: {correct/total:.2%} | Time: {end_time - start_time:.2f}s")
 
-    torch.save(model.state_dict(), cfg.MODEL_PATH)
+    torch.save({
+        "model_state_dict": model.state_dict(),
+        "model_config": cfg.MODEL_CONFIG,
+        "train_config": cfg.TRAIN_CONFIG,
+        "dataset_config": cfg.DATASET_CONFIG,
+    }, cfg.MODEL_PATH)
     print(f"Modèle sauvegardé sous : {cfg.MODEL_PATH}")
     print("Entraînement terminé.")
 
 if __name__ == "__main__":
     import os
     if os.path.exists(cfg.BIN_PATH) and os.path.exists(cfg.META_PATH):
-        train(num_epochs=15, batch_size=32)
+        train()
     else:
         print("Erreur : Données introuvables. Lancez d'abord le générateur (DumpGenerator).")

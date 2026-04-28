@@ -3,8 +3,16 @@ import torch
 from torch.utils.data import Dataset
 import mmap
 
+import config as cfg
+
 class RamDumpDataset(Dataset):
-    def __init__(self, bin_path, meta_path, chunk_size=512, offset=512):
+    def __init__(
+        self,
+        bin_path,
+        meta_path,
+        chunk_size=cfg.DEFAULT_CHUNK_SIZE,
+        offset=cfg.DEFAULT_DATASET_OFFSET,
+    ):
         self.bin_path = bin_path
         self.chunk_size = chunk_size
         self.offset = min(offset, chunk_size)

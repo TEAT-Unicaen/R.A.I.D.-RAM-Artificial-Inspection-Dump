@@ -4,7 +4,7 @@ import math
 from .PositionalEncoding import PositionalEncoding
 
 class BytesTransformerClassifier(nn.Module):
-    def __init__(self, dim_model: int=128, num_heads: int=4, num_layers: int=4, dim_ff: int=512, dropout: float=0.1):
+    def __init__(self, dim_model: int=128, num_heads: int=4, num_layers: int=4, dim_ff: int=512, dropout: float=0.1, max_len: int=5000):
         """
         Args:
             dim_model:  Embedding/hidden dimension throughout the model.
@@ -12,13 +12,14 @@ class BytesTransformerClassifier(nn.Module):
             num_layers: Number of TransformerEncoder layers.
             dim_ff:     Inner dimension of the feed-forward sublayer.
             dropout:    Dropout probability applied throughout.
+            max_len:    Maximum sequence length handled by the positional encoding.
         """
         super().__init__()
         self.padding_idx = 256 # Valeur pour le padding (octet hors plage)
         self.vocab_size = 257 # 256 valeurs d'octets + 1 pour le padding
         
         self.embedding = nn.Embedding(self.vocab_size, dim_model, padding_idx=self.padding_idx)
-        self.pos_encoder = PositionalEncoding(dim_model, dropout=dropout)
+        self.pos_encoder = PositionalEncoding(dim_model, max_len=max_len, dropout=dropout)
         
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=dim_model,
