@@ -23,7 +23,7 @@ MODEL_CONFIG = {
 }
 
 TRAIN_CONFIG = {
-	"learning_rate": 1e-3,
+	"learning_rate": 1e-4,
 	"weight_decay": 1e-2,
 	"num_epochs": 15,
 	"batch_size": 32,
@@ -49,7 +49,7 @@ TRAIN_LOADER_CONFIG = {
 }
 
 GENERATOR_CONFIG = {
-	"default_size_mb": 1500,
+	"default_size_mb": 100,
 	"default_seed": 42,
 	"memory_alignment": 16,
 	"image_fragment_threshold": 5000,

@@ -24,11 +24,11 @@ class RamDumpDataset(Dataset):
             
         self.label_map = {
             "ENCRYPTED": 1,
-            "COMPRESSED": 1,
+            "COMPRESSED": 0,
             "BINARY_TEXT": 0,
-            "BINARY_IMAGE": 1,
+            "BINARY_IMAGE": 0,
             "BINARY_OTHER": 0,
-            "BINARY_PDF": 1,
+            "BINARY_PDF": 0,
             "BASE64": 0,
             "DECODED": 0,
             "SYSTEM": 0,

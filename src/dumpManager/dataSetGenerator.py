@@ -363,9 +363,9 @@ if __name__ == "__main__":
             noiseLevel=cfg.GENERATOR_CONFIG["default_noise_level"], 
             balanceMode="weights",     
             weights={
-            "ENCRYPTED":    1/3,
-            "BINARY_IMAGE": 1/3,
-            "BINARY_TEXT":  1/3,
+            "BINARY_TEXT": 1/12, "BINARY_IMAGE": 1/12,
+            "ENCRYPTED": 0.5, "DECODED": 1/12, "BASE64": 1/12, "COMPRESSED": 1/12, 
+            'BINARY_PDF': 1/12
             # Les labels absents du dict auront un quota de 0
             })
 
