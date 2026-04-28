@@ -13,6 +13,8 @@ import cv2
 import numpy as np
 import json
 
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import config as cfg
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp'}
@@ -320,9 +322,17 @@ if __name__ == "__main__":
     if not os.path.exists(data_path):
         print(f"Erreur : Le dossier {data_path} est introuvable.")
     else:
-        files = [os.path.join(data_path, f) for f in os.listdir(data_path) 
-                 if os.path.isfile(os.path.join(data_path, f))]
-        
+        subfolders = ['image', 'text', 'pdf']
+        files = []
+        for sub in subfolders:
+            current_sub_path = os.path.join(data_path, sub)
+            if os.path.exists(current_sub_path):
+
+                for f in os.listdir(current_sub_path):
+                    full_path = os.path.join(current_sub_path, f)
+                    if os.path.isfile(full_path):
+                        files.append(full_path)
+
         print(f"Fichiers sources trouvés : {len(files)}")
 
         generator = DumpGenerator(
@@ -331,27 +341,27 @@ if __name__ == "__main__":
         )
 
         #Dataset équilibré exemple:
-        ram_bin, metadata = generator.run(
-            files,
-            noise=True,
-            noiseLevel=cfg.GENERATOR_CONFIG["default_noise_level"],
-            balanceMode=cfg.GENERATOR_CONFIG["default_balance_mode"],
-        )
+        # ram_bin, metadata = generator.run(
+        #     files,
+        #     noise=True,
+        #     noiseLevel=cfg.GENERATOR_CONFIG["default_noise_level"],
+        #     balanceMode=cfg.GENERATOR_CONFIG["default_balance_mode"],
+        # )
 
         #DatasetBiaisé exemple:
-        """ 
+
         ram_bin, metadata = generator.run(
             files, 
             noise=False, 
-            noiseLevel=0.2, 
+            noiseLevel=cfg.GENERATOR_CONFIG["default_noise_level"], 
             balanceMode="weights",     
             weights={
-            "BINARY_IMAGE": 1.00,
-            "BINARY_TEXT":  0.10,
-            "ENCRYPTED":    0.10,
+            "ENCRYPTED":    1/3,
+            "BINARY_IMAGE": 1/3,
+            "BINARY_TEXT":  1/3,
             # Les labels absents du dict auront un quota de 0
             })
-        """
+
 
         bin_file = os.path.join(output_path, "ram_dump.bin")
         meta_file = os.path.join(output_path, "metadata.json")

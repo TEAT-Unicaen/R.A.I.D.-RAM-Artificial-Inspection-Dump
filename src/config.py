@@ -49,7 +49,7 @@ TRAIN_LOADER_CONFIG = {
 }
 
 GENERATOR_CONFIG = {
-	"default_size_mb": 10,
+	"default_size_mb": 1500,
 	"default_seed": 42,
 	"memory_alignment": 16,
 	"image_fragment_threshold": 5000,
