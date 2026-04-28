@@ -317,6 +317,13 @@ if __name__ == "__main__":
     data_path = os.path.join(base_dir, "data")
     output_path = os.path.join(base_dir, "output")
 
+    def format_size(num_bytes: int) -> str:
+        if num_bytes >= 1024 * 1024:
+            return f"{num_bytes / 1024 / 1024:.2f} MB"
+        if num_bytes >= 1024:
+            return f"{num_bytes / 1024:.2f} KB"
+        return f"{num_bytes} B"
+
     os.makedirs(output_path, exist_ok=True)
 
     if not os.path.exists(data_path):
@@ -362,6 +369,16 @@ if __name__ == "__main__":
             # Les labels absents du dict auront un quota de 0
             })
 
+        source_raw_bytes = sum(os.path.getsize(file_path) for file_path in files if os.path.isfile(file_path))
+        raw_dataset_labels = ["BINARY_TEXT", "BINARY_IMAGE", "BINARY_OTHER", "BINARY_PDF"]
+        transformed_dataset_labels = ["DECODED", "COMPRESSED", "BASE64", "ENCRYPTED"]
+        auxiliary_dataset_labels = ["SYSTEM", "NOISE"]
+
+        raw_dataset_bytes = sum(generator.stats[label] for label in raw_dataset_labels)
+        transformed_dataset_bytes = sum(generator.stats[label] for label in transformed_dataset_labels)
+        auxiliary_dataset_bytes = sum(generator.stats[label] for label in auxiliary_dataset_labels)
+        total_dataset_bytes = len(ram_bin)
+
 
         bin_file = os.path.join(output_path, "ram_dump.bin")
         meta_file = os.path.join(output_path, "metadata.json")
@@ -373,6 +390,21 @@ if __name__ == "__main__":
             json.dump(metadata, f, indent=4)
 
         print(f"\n--- RAPPORT DE GÉNÉRATION ---")
+        print(f"Données scrappées brutes (dossier data) : {format_size(source_raw_bytes)}")
+        print(
+            f"Données brutes dans le dataset : {format_size(raw_dataset_bytes)} "
+            f"({(raw_dataset_bytes / total_dataset_bytes * 100) if total_dataset_bytes > 0 else 0:.2f}%)"
+        )
+        print(
+            f"Données transformées dans le dataset (pixels, zlib, base64, AES) : {format_size(transformed_dataset_bytes)} "
+            f"({(transformed_dataset_bytes / total_dataset_bytes * 100) if total_dataset_bytes > 0 else 0:.2f}%)"
+        )
+        if auxiliary_dataset_bytes > 0:
+            print(
+                f"Autres données (SYSTEM/NOISE) : {format_size(auxiliary_dataset_bytes)} "
+                f"({(auxiliary_dataset_bytes / total_dataset_bytes * 100) if total_dataset_bytes > 0 else 0:.2f}%)"
+            )
+        print(f"Taille totale dataset : {format_size(total_dataset_bytes)}")
         print(f"Fichier Dump : {bin_file} ({len(ram_bin)/1024/1024:.2f} MB)")
         print(f"Fichier Meta : {meta_file}")
         print(f"Segments totaux : {len(metadata)}")
