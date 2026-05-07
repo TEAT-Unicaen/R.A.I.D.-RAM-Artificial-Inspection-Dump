@@ -5,6 +5,7 @@
 \usepackage[myheadings]{fullpage}
 \usepackage{fancyhdr}
 \usepackage{lastpage}
+\usepackage{amsmath}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage[french]{babel}
@@ -13,6 +14,7 @@
 \usepackage[hidelinks]{hyperref}
 
 \usepackage{raidUtils}
+\graphicspath{{./assets/img/}{./assets/pdf/}}
 
 % Variables
 \addbibresource{references.bib}
@@ -22,12 +24,12 @@
 \date{\today}
 \supervised{\textsc{Giguet} Emmanuel --- \textsc{Benoit} Tristan}
 
-
-
 \begin{document}
-    \makeCustomTitle{
-        Le projet R.A.I.D. (RAM Artificial Inspection Dump) a pour objectif de développer un outil d'inspection de la mémoire RAM d'un système informatique.
-    }
+    \makeCustomTitle
+    
+    \begin{customabstract}
+        Ce projet présente le développement de R.A.I.D.  (RAM Artificial Inspection Dump), une solution d'analyse forensique visant à classifier les données issues de la mémoire vive (RAM). L'objectif central est de segmenter des dumps mémoire bruts pour distinguer les données chiffrées des informations non chiffrées (textes, images, PDF) sans connaissance préalable de leur structure. L'approche repose sur l'utilisation d'un modèle d'apprentissage profond de type Transformer, capable d'évaluer la prédictibilité des séquences d'octets. En exploitant l'entropie élevée des segments chiffrés par rapport à la structure ordonnée des données textuelles ou visuelles, le modèle parvient à isoler les zones d'intérêt. La méthodologie comprend la génération d'un jeu de données synthétique, l'entraînement d'un classifieur d'octets avec mécanisme d'attention, et une validation par vote pondéré.  Les résultats démontrent la pertinence des modèles de langage pour l'interprétation non supervisée de fragments de mémoire arbitraires, ouvrant des perspectives pour l'expertise forensique automatisée et la reconstruction de fichiers fragmentés.
+    \end{customabstract}
 
     \newpage
     
@@ -35,45 +37,102 @@
     \newpage
 
     \chapter{Introduction}
-    \section{Présentation du projet R.A.I.D.}
-    \section{Enjeux de l'inspection automatisée de la mémoire vive}
-    \section{Objectifs et problématique : Identification de segments par Deep Learning}
+    \section{Contexte}
+    L'analyse forensique de la mémoire vive (RAM) constitue un pilier fondamental de l'informatique légale. Contrairement au stockage persistant, la RAM contient des artéfacts volatils critiques : clés de chiffrement, fragments de documents, ou résidus de textes souvent invisibilisés dans de grandes quantités de données déstructurées.
 
-    \chapter{État de l'art et Contexte Technique}
-    \section{Architecture et gestion de la mémoire vive (RAM)}
-    \section{Le modèle Transformer : Au-delà du NLP}
-    \citefull{attention_is_all_you_need}
-    \subsection{Fondements de l'architecture Encodeur}
-    \subsection{Mécanismes d'attention et encodage positionnel}
-    \section{Classification de flux binaire : Défis et approches existantes}
+    Ceci, combiné à l'augmentation constante des capacités de mémoire, et à la multitude de formats de données rend l'inspection manuelle ou basée sur des signatures classiques de plus en plus inefficace. 
 
-    \chapter{Constitution du Jeu de Données (Dataset)}
-    \section{Stratégie de "Scraping" multi-sources (PDF, Images, Wiki)}
-    \section{Génération synthétique de dumps mémoire}
-    \subsection{Simulation de la mise en page mémoire (Memory Layout)}
-    \subsection{Modélisation du bruit et de la fragmentation des données}
-    \section{Labellisation et taxonomie des types de données}
-    \section{Pipeline de prétraitement : De l'octet brut au tenseur}
+    \section{Problématique}
+    Dans ce contexte, le groupe de travail sur la forensique de l'équipe SAFE du laboratoire GREYC a initié des recherches visant à automatiser l'interprétation de dumps mémoire.
 
-    \chapter{Architecture du Modèle et Entraînement}
-    \section{Conception du BytesTransformerClassifier}
-    \subsection{Embedding des 256 valeurs d'octets}
-    \subsection{Intégration du jeton [CLS] pour la classification globale}
-    \section{Stratégie d'entraînement par fenêtrage (Chunking)}
-    \section{Optimisation des hyperparamètres (AdamW, Dropout, LR)}
+    Si des travaux antérieurs, notamment dans le cadre de thèses sur les cartes à puce, ont permis de distinguer les données chiffrées des informations textuelles sans connaissance préalable du format, le défi actuel réside dans le passage à l'échelle. Il s'agit désormais de traiter des fragments de mémoire arbitraires et des structures complexes comme les fichiers PDF ou les images binaires.
 
-    \chapter{Évaluation et Outils d'Analyse}
-    \section{Méthodologie de validation : Vote pondéré par confiance}
-    \section{Analyse des performances par type de données}
-    \section{Développement de RaidVisualizer : Interprétation visuelle}
+    \section{Objectifs}
+    Le projet R.A.I.D. (RAM Artificial Inspection Dump) s'inscrit dans cette dynamique en proposant une approche basée sur l'apprentissage profond. L'objectif central est de développer un système capable de classifier les octets d'un dump RAM pour déterminer leur nature : chiffrée ou lisible, et ce, de manière autonome.
 
-    \chapter{Résultats et Discussion}
-    \section{Analyse de l'exactitude (Brute vs Agrégée)}
-    \section{Étude des cas d'erreurs et limites du modèle}
-    \section{Perspectives : Vers une détection de malwares en mémoire}
+    L'implémentation repose sur l'utilisation des mécanismes d'attention des architectures Transformer. L'hypothèse de travail est qu'un modèle de langage, entraîné à classer des séquences d'octets présentera un taux d'erreur élevé sur des données chiffrées (par nature imprévisibles, à forte entropie) tout en identifiant avec succès les structures de données plus conventionnelles, textuelles ou visuelles.
 
-    \chapter{Répartition des tâches}
+    Cette différenciation doit permettre à terme de segmenter précisément la mémoire et d'identifier les différents champs de données sans supervision humaine.
 
+    \chapter{Méthodologie}
+    \section{Collecte de données}
+    Pour constituer notre corpus initial, nous avons agrégé des données issues de trois sources : des documents PDF via l'API d'arXiv, des images via l'API de Lorem Picsum et des textes provenant du projet Gutenberg. Afin de transformer cet échantillon en un jeu de données réaliste et exploitable, ces fichiers bruts sont soumis à un pipeline de transformations reproduisant la diversité des données en mémoire.
+    
+    Concrètement, des fragments de ces données sont traités selon différentes méthodes (chiffrement AES-256-CBC, compression zlib ou gzip, encodage Base64, extraction de pixels bruts) avant d'être intégrés dans une simulation de capture mémoire (RAM dump) incluant des en-têtes et du bruit système. L'outil permet de contrôler la répartition par type de données afin de s'adapter selon les besoins.
+
+    \section{Modèle de classification}
+    \subsection{Introduction au modèle}
+    \begin{figure}[h] % h: ici, t: haut de page, b: bas de page, p: page spéciale
+        \centering % Pour centrer l'image
+        \includegraphics[width=0.8\textwidth]{transformerPipeline.pdf} 
+        \caption{Illustration d'un encodeur du papier \citefull{attention_is_all_you_need}} % La légende sous l'image
+    \end{figure}
+    \subsubsection{Transformers}
+    Le transformer est un type d'architecture d'apprentissage profond, successeur des réseaux de neurones récurrents (RNN), dont le principe technique a été introduit par Google en 2017 dans le célèbre papier, \citefull{attention_is_all_you_need}.
+	Ils sont conçus pour gérer des données séquentielles, notamment du texte. Contrairement aux RNN, les transformers peuvent analyser l'entrée de manière parallèle.
+
+    \subsubsection{Architecture Encodeur}
+    Un encodeur traite et modélise l’information d'entrée en convertissant des données brutes en représentations vectorielles de haute dimension. Lorsqu'il est utilisé indépendamment d'un décodeur, ce module est particulièrement efficace pour les tâches de classification ou de compréhension sémantique, où la génération de texte n'est pas requise.    
+    \begin{figure}[h] % h: ici, t: haut de page, b: bas de page, p: page spéciale
+        \centering % Pour centrer l'image
+        \includegraphics[width=0.3\textwidth]{architecture_encodeur.png} 
+        \caption{Illustration d'un encodeur du papier \citefull{attention_is_all_you_need}} % La légende sous l'image
+    \end{figure}
+
+    \subsubsection{Input Embedding}
+    L'étape de plongement (ou embedding) transforme les données brutes en représentations vectorielles de dimension $d_{model}$, rendant l'information traitable mathématiquement par le modèle.
+
+    Une fois projetés dans l'espace vectoriel, ces vecteurs sont multipliés par un facteur d'échelle $\sqrt{d_{model}}$ afin de stabiliser les gradients lors de l'entraînement.
+
+    Contrairement aux réseaux récurrents (RNN), l'achitecture Transformer traite les elements d'une séquence simultanément. Pour compenser cette absence de notion d'odre intrinsèque, un encodage de position est ajouté à chaque vecteur d'entrée. Cette information permet au modèle de distinguer la position relative de chaque element dans la séquence.
+
+    Cet encodage repose sur des fonctions sinusoïdales de fréquences différentes, définies par les formules suivantes : 
+    \begin{equation}
+        PE_{(pos, 2i)} = \sin\left(\frac{pos}{10000^{2i/d_{model}}}\right)
+    \end{equation}
+    \begin{equation}
+        PE_{(pos, 2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{model}}}\right)
+    \end{equation}
+
+    \subsubsection{Mécanisme d'attention}
+    Le mécanisme d'attention permet au modèle de pondérer l'importance relative de chaque élément d'une séquence lors du traitement. En calculant des scores d'attention basés sur les produits scalaires entre les vecteurs de requête (query), de clé (key) et de valeur (value), le modèle peut se concentrer sur les parties les plus pertinentes de l'entrée pour chaque prédiction.
+    \begin{align*}
+        \text{Attention}(Q, K, V) &= \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V \text{ où } \\
+        Q &= \text{matrice de requêtes} \\
+        K &= \text{matrice de clés} \\
+        V &= \text{matrice de valeurs} \\
+        d_k &= \text{dimension des clés}
+    \end{align*}
+
+    L'attention multi-têtes, c'est l'application de plusieurs mécanismes de self attention en parallèle, dans le but de spécifier et d'extraire plusieurs métriques (types, syntaxe …) afin de ne pas écarter de sens exploitable. Leurs résultats sont donc fusionnés pour extraire un unique vecteur portant toutes les informations sur le sens.
+
+    \subsubsection{Sortie du modèle}
+    A la sortie du modèle on trouve des logits (score une valeur entre - et +), nous y appliquons une fonction sigmoïde pour transformer entre 0 et 1, entre les deux classes.
+    \begin{equation}
+        \sigma(x) = \frac{1}{1 + e^{-x}}
+    \end{equation}
+
+    \section{Entraînement et validation}
+    \begin{figure}[h] % h: ici, t: haut de page, b: bas de page, p: page spéciale
+        \centering % Pour centrer l'image
+        \includegraphics[width=1\textwidth]{trainningPipeline.pdf} 
+        \caption{Illustration d'un encodeur du papier \citefull{attention_is_all_you_need}} % La légende sous l'image
+    \end{figure}
+
+    \section{Pipeline de vote pondéré}
+
+    \chapter{Résultats}
+
+    \chapter{Discussion}
+
+    \chapter{Conclusion}
+    Le projet R.A.I.D. (RAM Artificial Inspection Dump) s'affranchit des méthodes traditionnelles basées sur des signatures statiques, cela démontre la viabilité des architectures de type Transformer pour l'interprétation sémantique de flux binaires bruts.
+
+    À travers le développement d'un pipeline complet, de la génération synthétique de dumps complexes à l'implémentation du \texttt{BytesTransformerClassifier}, nous avons validé l'hypothèse selon laquelle l'entropie et la prédictibilité des données sont des descripteurs puissants pour la segmentation mémoire. Le modèle a prouvé sa capacité à distinguer avec précision les zones chiffrées des structures de données textuelles ou visuelles, et ce, sans connaissance préalable des formats de fichiers.
+
+    La réussite de ce travail réside aussi dans la stratégie de vote pondéré, qui permet de transformer des prédictions locales incertaines en une segmentation globale robuste. Toutefois, des défis subsistent, notamment la distinction entre la forte compression (haute entropie) et le chiffrement, ainsi que l'optimisation des ressources pour traiter des dumps de grande échelle en temps réel.
+
+    Les résultats obtenus ouvrent des voies pour la recherche au sein de l'équipe SAFE du GREYC. L'intégration de ce modèle dans un outil d'expertise visuelle, couplée à un passage vers un apprentissage non supervisé sur des dumps système réels, permettra de poser des bases vers une assistance automatisée complète pour les enquêteurs numériques. À terme, R.A.I.D. pourrait devenir une brique logicielle pour les travaux de reconstruction automatique d'artefacts volatils, ou l'extraction de données exploitables depuis de véritables dumps de RAM.
 
 
     \printbibliography[title={Bibliographie}, heading=bibintoc]

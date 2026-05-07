@@ -19,7 +19,7 @@
 \def\@supervised{Aucun encadrant spécifié}
 
 % --- La Fonction de Page de Garde ---
-\newcommand{\makeCustomTitle}[1]{
+\newcommand{\makeCustomTitle} {
 \begin{titlepage}
     \centering
     \vspace*{1cm}
@@ -40,14 +40,21 @@
     \@supervised 
 
     \vfill
-    
-    \begin{quote}
-        \centering \textbf{Résumé :}\\
-        #1
-    \end{quote}
-    \vspace*{1cm}
 \end{titlepage}
 }
+
 \makeatother
 
-\newcommand{\citefull}[1]{\textit{\citetitle{#1}}~\cite{#1}}
+\newenvironment{customabstract}{%
+    \begin{center}%
+      % Ton style spécifique : LARGE et Gras
+      {\LARGE \textbf{Résumé}\par}% 
+      \vspace{1em}
+    \end{center}%
+    \quotation % Ajoute des marges à gauche et à droite
+}{%
+    \endquotation
+    \vspace{2em} % Espace après le résumé pour respirer
+}
+
+\newcommand{\citefull}[1] {\textit{\citetitle{#1}}~\cite{#1}}
