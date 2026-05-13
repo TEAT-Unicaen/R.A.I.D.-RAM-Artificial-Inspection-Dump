@@ -1,6 +1,7 @@
 import os
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import time
 from torch.utils.data import DataLoader
@@ -9,6 +10,34 @@ from dumpManager.RamDumpDataset import RamDumpDataset
 
 from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransformerClassifier
 import config as cfg
+
+def compute_tv_loss(probs, device):
+    """
+    Compute Total Variation Loss using 1D convolution (GPU-optimized).
+    
+    Uses a fixed kernel [-1, 1] to compute adjacent differences efficiently.
+    Much faster than manual slicing/subtraction on GPU.
+    
+    Args:
+        probs: Tensor of shape (batch, length) - probability predictions
+        device: torch device
+    
+    Returns:
+        tv_loss: scalar tensor
+    """
+    # Reshape for conv1d: (batch, channels=1, length)
+    probs_reshaped = probs.unsqueeze(1)
+    
+    # Kernel: [-1, 1] to compute differences (shape: 1, 1, 2)
+    kernel = torch.tensor([[[-1.0, 1.0]]], device=device, dtype=probs.dtype)
+    
+    # Apply 1D convolution: computes probs[:, i+1] - probs[:, i]
+    diff = F.conv1d(probs_reshaped, kernel, padding=0)
+    
+    # Compute mean absolute difference
+    tv_loss = torch.mean(torch.abs(diff))
+    
+    return tv_loss
 
 def train(
     learning_rate=cfg.TRAIN_CONFIG["learning_rate"],
@@ -115,9 +144,9 @@ def train(
                     else:
                         loss = torch.tensor(0.0, device=device)
 
-                    # Adding Total Variation Loss for smoother predictions (on full sequence to preserve spatial structure)
+                    # Adding Total Variation Loss for smoother predictions (GPU-optimized with conv1d)
                     probs = torch.sigmoid(logits)
-                    tv_loss = torch.mean(torch.abs(probs[:, 1:] - probs[:, :-1]))
+                    tv_loss = compute_tv_loss(probs, device)
 
                     # Lambda 0.1
                     combined_loss = loss + 0.1 * tv_loss
@@ -130,9 +159,9 @@ def train(
                 else:
                     loss = torch.tensor(0.0, device=device)
 
-                # Adding Total Variation Loss for smoother predictions (on full sequence to preserve spatial structure)
+                # Adding Total Variation Loss for smoother predictions (GPU-optimized with conv1d)
                 probs = torch.sigmoid(logits)
-                tv_loss = torch.mean(torch.abs(probs[:, 1:] - probs[:, :-1]))
+                tv_loss = compute_tv_loss(probs, device)
 
                 # Lambda 0.1
                 combined_loss = loss + 0.1 * tv_loss
