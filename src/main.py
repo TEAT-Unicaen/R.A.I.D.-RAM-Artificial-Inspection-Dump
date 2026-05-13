@@ -26,7 +26,16 @@ def evaluate(genereateExport=False):
         model.to(device)
 
         state_dict = checkpoint["model_state_dict"] if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint else checkpoint
-        model.load_state_dict(state_dict)
+        try:
+            load_result = model.load_state_dict(state_dict)
+        except RuntimeError as load_error:
+            print(f"Avertissement: chargement strict impossible ({load_error}). Repli sur strict=False.")
+            load_result = model.load_state_dict(state_dict, strict=False)
+
+        if getattr(load_result, "missing_keys", None):
+            print(f"Clés manquantes lors du chargement: {load_result.missing_keys}")
+        if getattr(load_result, "unexpected_keys", None):
+            print(f"Clés inattendues lors du chargement: {load_result.unexpected_keys}")
         print(f"Poids chargés avec succès depuis : {cfg.MODEL_PATH}")
     except FileNotFoundError:
         print(f"ERREUR CRITIQUE : Le fichier modèle '{cfg.MODEL_PATH}' est introuvable.")

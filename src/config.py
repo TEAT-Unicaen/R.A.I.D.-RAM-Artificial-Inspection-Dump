@@ -21,6 +21,8 @@ MODEL_CONFIG = {
 	"dim_ff": 512,
 	"dropout": 0.1,
 	"max_len": DEFAULT_CHUNK_SIZE,
+	"local_conv_kernel_size": 3,
+	"classifier_hidden_dim": 256,
 }
 
 TRAIN_CONFIG = {
