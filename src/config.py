@@ -10,13 +10,13 @@ VISUAL_EXPORT_DIR = os.path.join(BASE_DIR, "../output")
 DEFAULT_CHUNK_SIZE = 512
 DEFAULT_DATASET_OFFSET = 512
 DEFAULT_EVAL_OFFSET = 128
-DEFAULT_BATCH_SIZE = 32
+DEFAULT_BATCH_SIZE = 256
 DEFAULT_NUM_WORKERS = 4
 DEFAULT_PIN_MEMORY = True
 
 MODEL_CONFIG = {
-       "padding_idx": 256,
-       "vocab_size": 257,
+	"padding_idx": 256,
+	"vocab_size": 257,
 	"dim_model": 128,
 	"num_heads": 4,
 	"num_layers": 4,
@@ -31,7 +31,7 @@ TRAIN_CONFIG = {
 	"learning_rate": 5e-4,
 	"weight_decay": 1e-2,
 	"num_epochs": 15,
-	"batch_size": 512,
+	"batch_size": DEFAULT_BATCH_SIZE,
 }
 
 DATASET_CONFIG = {
@@ -54,7 +54,7 @@ TRAIN_LOADER_CONFIG = {
 }
 
 GENERATOR_CONFIG = {
-	"default_size_mb": 1000,
+	"default_size_mb": 50,
 	"default_seed": 42,
 	"memory_alignment": 16,
 	"image_fragment_threshold": 5000,
