@@ -67,6 +67,7 @@ def evaluate(genereateExport=False):
         shuffle=False,
         num_workers=cfg.EVAL_LOADER_CONFIG["num_workers"],
         pin_memory=cfg.EVAL_LOADER_CONFIG["pin_memory"],
+        prefetch_factor=cfg.EVAL_LOADER_CONFIG["prefetch_factor"],
     )
 
     visualizer = RaidVisualizerExporter() if genereateExport else None

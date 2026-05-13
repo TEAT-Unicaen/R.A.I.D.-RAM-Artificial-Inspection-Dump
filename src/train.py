@@ -34,15 +34,29 @@ def train(
         shuffle=True,
         num_workers=cfg.TRAIN_LOADER_CONFIG["num_workers"],
         pin_memory=cfg.TRAIN_LOADER_CONFIG["pin_memory"],
+        prefetch_factor=cfg.TRAIN_LOADER_CONFIG["prefetch_factor"],
     )
 
     model = BytesTransformerClassifier(**cfg.MODEL_CONFIG)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
+    
+    if cfg.DO_COMPILE_MODEL and hasattr(torch, "compile"):
+        try:
+            print("Tentative de compilation du modèle pour une meilleure performance ...")
+            compile_kwargs = {}
+            if getattr(cfg, "COMPILE_BACKEND", None):
+                compile_kwargs["backend"] = cfg.COMPILE_BACKEND
+            model = torch.compile(model, **compile_kwargs)
+        except Exception as exc:
+            print(f"Compilation désactivée automatiquement: {exc}")
+            print(f"Backends disponibles : {torch._dynamo.list_backends()}")
 
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    useBf16 = device.type == "cuda" and torch.cuda.is_bf16_supported()
     print(f"--- Entraînement sur {device} ---")
+    print(f"bf16 activé: {useBf16}")
 
     model.train()
     print("Démarrage de l'entraînement...")
@@ -61,18 +75,31 @@ def train(
             
             optimizer.zero_grad()
             
-            logits = model(x)  
-            loss = criterion(logits, y)
+            if useBf16:
+                with torch.amp.autocast("cuda", dtype=torch.bfloat16, enabled=True):
+                    logits = model(x)
+                    loss = criterion(logits, y)
 
-            # Adding Total Variation Loss for smoother predictions
-            probs = torch.sigmoid(logits)
-            # Calculate the total variation loss by summing the absolute differences between adjacent probabilities
-            tv_loss = torch.mean(torch.abs(probs[:, 1:] - probs[:, :-1]))
+                    # Adding Total Variation Loss for smoother predictions
+                    probs = torch.sigmoid(logits)
+                    # Calculate the total variation loss by summing the absolute differences between adjacent probabilities
+                    tv_loss = torch.mean(torch.abs(probs[:, 1:] - probs[:, :-1]))
 
-            # Lambda 0.1
-            combined_loss = loss + 0.1 * tv_loss
+                    # Lambda 0.1
+                    combined_loss = loss + 0.1 * tv_loss
+            else:
+                logits = model(x)
+                loss = criterion(logits, y)
+
+                # Adding Total Variation Loss for smoother predictions
+                probs = torch.sigmoid(logits)
+                # Calculate the total variation loss by summing the absolute differences between adjacent probabilities
+                tv_loss = torch.mean(torch.abs(probs[:, 1:] - probs[:, :-1]))
+
+                # Lambda 0.1
+                combined_loss = loss + 0.1 * tv_loss
+
             combined_loss.backward()
-
             optimizer.step()
             
             total_loss += loss.item()
