@@ -10,6 +10,21 @@ import config as cfg
 
 from tools.visualizerExport import RaidVisualizerExporter
 
+
+def _unwrap_compiled_state_dict(state_dict):
+    """
+    Remove _orig_mod. prefix from compiled model state_dict keys.
+    Useful when loading checkpoints saved with torch.compile.
+    """
+    unwrapped = {}
+    for key, value in state_dict.items():
+        if key.startswith("_orig_mod."):
+            unwrapped[key[10:]] = value  # Remove "_orig_mod." prefix (10 chars)
+        else:
+            unwrapped[key] = value
+    return unwrapped
+
+
 def evaluate(genereateExport=False):
     if not torch.cuda.is_available():
         print("Aucun GPU détécté, évaluation sur CPU.")
@@ -29,6 +44,8 @@ def evaluate(genereateExport=False):
         print(f"bf16 activé: {useBf16}")
 
         state_dict = checkpoint["model_state_dict"] if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint else checkpoint
+        # Unwrap compiled model state_dict if necessary
+        state_dict = _unwrap_compiled_state_dict(state_dict)
         try:
             load_result = model.load_state_dict(state_dict)
         except RuntimeError as load_error:
@@ -71,6 +88,7 @@ def evaluate(genereateExport=False):
         num_workers=cfg.EVAL_LOADER_CONFIG["num_workers"],
         pin_memory=cfg.EVAL_LOADER_CONFIG["pin_memory"],
         prefetch_factor=cfg.EVAL_LOADER_CONFIG["prefetch_factor"],
+        persistent_workers=True,
     )
 
     visualizer = RaidVisualizerExporter() if genereateExport else None

@@ -64,6 +64,7 @@ def train(
         num_workers=cfg.TRAIN_LOADER_CONFIG["num_workers"],
         pin_memory=cfg.TRAIN_LOADER_CONFIG["pin_memory"],
         prefetch_factor=cfg.TRAIN_LOADER_CONFIG["prefetch_factor"],
+        persistent_workers=True,
     )
 
     model = BytesTransformerClassifier(**cfg.MODEL_CONFIG)
@@ -192,17 +193,21 @@ def train(
         print(f"Epoch {epoch+1} | Loss: {avg_loss:.4f} | Acc: {accuracy:.2%} | LR: {current_lr:.2e} | Time: {end_time - start_time:.2f}s")
 
         checkpoint_path = os.path.join(cfg.CHECKPOINT_DIR, f"checkpoint_epoch_{epoch+1}.pt")
+        # Always save unwrapped model state_dict, even if model is compiled
+        state_dict = model._orig_mod.state_dict() if hasattr(model, "_orig_mod") else model.state_dict()
         torch.save({
             "epoch": epoch + 1,
-            "model_state_dict": model.state_dict(),
+            "model_state_dict": state_dict,
             "optimizer_state_dict": optimizer.state_dict(),
             "loss": avg_loss,
             "model_config": cfg.MODEL_CONFIG,
         }, checkpoint_path)
         print(f"Checkpoint sauvegardé : {checkpoint_path}")
 
+    # Always save unwrapped model state_dict, even if model is compiled
+    state_dict = model._orig_mod.state_dict() if hasattr(model, "_orig_mod") else model.state_dict()
     torch.save({
-        "model_state_dict": model.state_dict(),
+        "model_state_dict": state_dict,
         "model_config": cfg.MODEL_CONFIG,
         "train_config": cfg.TRAIN_CONFIG,
         "dataset_config": cfg.DATASET_CONFIG,

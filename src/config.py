@@ -36,7 +36,7 @@ MODEL_CONFIG = {
 	"dropout": 0.05,
 	"max_len": DEFAULT_CHUNK_SIZE,
 	"local_conv_kernel_size": 3,
-	"classifier_hidden_dim": 512, #256 normalement, à 512 pour test si donner + de place au classifieur améliore les résultats
+	"classifier_hidden_dim": 256, #256 normalement, à 512 pour test si donner + de place au classifieur améliore les résultats
 }
 
 TRAIN_CONFIG = {
@@ -78,7 +78,7 @@ EVAL_CONFIG = {
 TRAIN_LOADER_CONFIG = {
 	"num_workers": DEFAULT_NUM_WORKERS,
 	"pin_memory": DEFAULT_PIN_MEMORY,
-    "prefetch_factor": 2, #Nombre de batchs à précharger par worker
+	"prefetch_factor": 4,
 }
 
 GENERATOR_CONFIG = {
@@ -100,5 +100,5 @@ GENERATOR_CONFIG = {
 EVAL_LOADER_CONFIG = {
 	"num_workers": DEFAULT_NUM_WORKERS,
 	"pin_memory": DEFAULT_PIN_MEMORY,
-    "prefetch_factor": 2, #Nombre de batchs à précharger par worker
+	"prefetch_factor": 4,
 }

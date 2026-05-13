@@ -44,9 +44,7 @@ class BytesTransformerClassifier(nn.Module):
             kernel_size=local_conv_kernel_size,
             padding=local_conv_kernel_size // 2,
         )
-        nn.init.zeros_(self.local_conv.weight)
-        if self.local_conv.bias is not None:
-            nn.init.zeros_(self.local_conv.bias)
+        
         self.local_conv_activation = nn.SiLU()
         self.local_norm = nn.LayerNorm(dim_model)
         
@@ -88,7 +86,7 @@ class BytesTransformerClassifier(nn.Module):
         # --- Étape 2b : Motifs locaux ---
         local_features = self.local_conv(x.transpose(1, 2)).transpose(1, 2)
         x = x + self.local_conv_activation(local_features)
-        x = self.local_norm(x)
+        x = self.local_norm(x) #Maybe a bad thing ? Needs more in-depth testing
 
         # --- Étape 2c : Positional Encoding ---
         x = self.pos_encoder(x)
