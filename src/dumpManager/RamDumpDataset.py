@@ -3,6 +3,10 @@ import torch
 from torch.utils.data import Dataset
 import mmap
 
+import os
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import config as cfg
 
 class RamDumpDataset(Dataset):
