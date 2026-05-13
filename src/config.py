@@ -4,6 +4,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BIN_PATH = os.path.join(BASE_DIR, "../output/ram_dump.bin")
 META_PATH = os.path.join(BASE_DIR, "../output/metadata.json")
 MODEL_PATH = os.path.join(BASE_DIR, "../bytes_transformer_classifier_all.pth")
+CHECKPOINT_DIR = os.path.join(BASE_DIR, "../checkpoints")
 VISUAL_EXPORT_DIR = os.path.join(BASE_DIR, "../output")
 
 DEFAULT_CHUNK_SIZE = 512
@@ -19,14 +20,14 @@ MODEL_CONFIG = {
 	"num_layers": 4,
 	"dim_ff": 512,
 	"dropout": 0.1,
-	"max_len": 5000,
+	"max_len": DEFAULT_CHUNK_SIZE,
 }
 
 TRAIN_CONFIG = {
-	"learning_rate": 1e-4,
+	"learning_rate": 5e-4,
 	"weight_decay": 1e-2,
 	"num_epochs": 15,
-	"batch_size": 32,
+	"batch_size": 512,
 }
 
 DATASET_CONFIG = {
@@ -49,7 +50,7 @@ TRAIN_LOADER_CONFIG = {
 }
 
 GENERATOR_CONFIG = {
-	"default_size_mb": 100,
+	"default_size_mb": 1000,
 	"default_seed": 42,
 	"memory_alignment": 16,
 	"image_fragment_threshold": 5000,

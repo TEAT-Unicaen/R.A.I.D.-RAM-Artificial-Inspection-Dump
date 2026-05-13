@@ -69,7 +69,19 @@ def train(
             total += y.numel()
             
         end_time = time.time()
-        print(f"Epoch {epoch+1} | Loss: {total_loss/len(dataloader):.4f} | Acc: {correct/total:.2%} | Time: {end_time - start_time:.2f}s")
+        avg_loss = total_loss / len(dataloader)
+        accuracy = correct / total
+        print(f"Epoch {epoch+1} | Loss: {total_loss/len(dataloader):.4f} | Acc: {accuracy:.2%} | Time: {end_time - start_time:.2f}s")
+
+        checkpoint_path = os.path.join(cfg.CHECKPOINT_DIR, f"checkpoint_epoch_{epoch+1}.pt")
+        torch.save({
+            "epoch": epoch + 1,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "loss": avg_loss,
+            "model_config": cfg.MODEL_CONFIG,
+        }, checkpoint_path)
+        print(f"Checkpoint sauvegardé : {checkpoint_path}")
 
     torch.save({
         "model_state_dict": model.state_dict(),
