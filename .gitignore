@@ -23,6 +23,7 @@ ENV/
 # Ignore .pth files
 output/
 data/
+checkpoints/
 *.pth
 *.json
 
