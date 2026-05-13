@@ -61,11 +61,18 @@ def train(
             
             optimizer.zero_grad()
             
-            logits = model(x)
-            
+            logits = model(x)  
             loss = criterion(logits, y)
-            
-            loss.backward()
+
+            # Adding Total Variation Loss for smoother predictions
+            probs = torch.sigmoid(logits)
+            # Calculate the total variation loss by summing the absolute differences between adjacent probabilities
+            tv_loss = torch.mean(torch.abs(probs[:, 1:] - probs[:, :-1]))
+
+            # Lambda 0.1
+            combined_loss = loss + 0.1 * tv_loss
+            combined_loss.backward()
+
             optimizer.step()
             
             total_loss += loss.item()
