@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -7,7 +8,6 @@ from torch.utils.data import DataLoader
 from dumpManager.RamDumpDataset import RamDumpDataset
 
 from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransformerClassifier
-
 import config as cfg
 
 def train(
@@ -16,6 +16,11 @@ def train(
     num_epochs=cfg.TRAIN_CONFIG["num_epochs"],
     batch_size=cfg.TRAIN_CONFIG["batch_size"],
 ):
+
+    os.makedirs(cfg.CHECKPOINT_DIR, exist_ok=True)
+    if os.path.dirname(cfg.MODEL_PATH):
+        os.makedirs(os.path.dirname(cfg.MODEL_PATH), exist_ok=True)
+
     dataset = RamDumpDataset(
         bin_path=cfg.BIN_PATH, 
         meta_path=cfg.META_PATH, 
@@ -93,7 +98,6 @@ def train(
     print("Entraînement terminé.")
 
 if __name__ == "__main__":
-    import os
     if os.path.exists(cfg.BIN_PATH) and os.path.exists(cfg.META_PATH):
         train()
     else:
