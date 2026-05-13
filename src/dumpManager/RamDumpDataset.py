@@ -41,6 +41,7 @@ class RamDumpDataset(Dataset):
             "NOISE": 0
         }
         self._prepare_samples()
+        self._build_full_label_mask()
 
     def _prepare_samples(self):
         bin_size = self.metadata[-1]['de']
@@ -55,6 +56,22 @@ class RamDumpDataset(Dataset):
             self.samples.append((current_pos, meta_idx))
             current_pos += self.offset
 
+    def _build_full_label_mask(self):
+        """Pre-compute label mask for entire file (O(1) lookup in __getitem__)."""
+        bin_size = self.metadata[-1]['de']
+        print(f"Building full label mask ({bin_size / 1e6:.1f}MB)...", flush=True)
+        
+        # Initialize with -1 (padding/unlabeled)
+        self.full_label_mask = np.full(bin_size, -1, dtype=np.float32)
+        
+        # Fill in labels from metadata in single pass
+        for entry in self.metadata:
+            label_val = self.label_map.get(entry['t'], 0)
+            start, end = entry['ds'], entry['de']
+            self.full_label_mask[start:end] = label_val
+        
+        print(f"Label mask built successfully.")
+
     def __len__(self):
         return len(self.samples)
 
@@ -63,31 +80,12 @@ class RamDumpDataset(Dataset):
             self.f = open(self.bin_path, 'rb')
             self.ram_data = mmap.mmap(self.f.fileno(), 0, access=mmap.ACCESS_READ)
         
-        data_start, meta_idx = self.samples[idx]
-        segment_end = data_start + self.chunk_size
+        data_start = self.samples[idx][0]
         chunk = self.ram_data[data_start : data_start + self.chunk_size]
         
         x = torch.from_numpy(np.frombuffer(chunk, dtype=np.uint8).astype(np.int64))
-        y = torch.full((self.chunk_size,), -1.0, dtype=torch.float)
-
-        temp_idx = meta_idx
-        while temp_idx < len(self.metadata):
-            entry = self.metadata[temp_idx]
-            if entry['ds'] >= segment_end:
-                break
-            if entry['de'] <= data_start:
-                temp_idx += 1
-                continue
-            
-            overlap_start = max(data_start, entry['ds']) - data_start
-            overlap_end   = min(segment_end, entry['de']) - data_start
-            
-            if overlap_start < overlap_end:
-                label_val = self.label_map.get(entry['t'], 0)
-                y[overlap_start:overlap_end] = label_val
-            
-            temp_idx += 1
-        
+        # O(1) slice from pre-computed label mask (no iteration needed)
+        y = torch.from_numpy(self.full_label_mask[data_start : data_start + self.chunk_size].copy()).float()
         
         # Also return the absolute start offset to allow stable aggregation
         # across batch boundaries during evaluation/inference.
