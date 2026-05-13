@@ -67,7 +67,7 @@ class RamDumpDataset(Dataset):
         chunk = self.ram_data[data_start : data_start + self.chunk_size]
         
         x = torch.from_numpy(np.frombuffer(chunk, dtype=np.uint8).astype(np.int64))
-        y = torch.zeros(self.chunk_size, dtype=torch.float)
+        y = torch.full((self.chunk_size,), -1.0, dtype=torch.float)
 
         temp_idx = meta_idx
         while temp_idx < len(self.metadata):

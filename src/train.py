@@ -106,23 +106,37 @@ def train(
             if useBf16:
                 with torch.amp.autocast("cuda", dtype=torch.bfloat16, enabled=True):
                     logits = model(x)
-                    loss = criterion(logits, y)
+                    valid_mask = y >= 0
+                    
+                    if valid_mask.any():
+                        loss = criterion(logits[valid_mask], y[valid_mask])
+                    else:
+                        loss = torch.tensor(0.0, device=device)
 
-                    # Adding Total Variation Loss for smoother predictions
+                    # Adding Total Variation Loss for smoother predictions (only on valid regions)
                     probs = torch.sigmoid(logits)
-                    # Calculate the total variation loss by summing the absolute differences between adjacent probabilities
-                    tv_loss = torch.mean(torch.abs(probs[:, 1:] - probs[:, :-1]))
+                    if valid_mask.any():
+                        tv_loss = torch.mean(torch.abs(probs[valid_mask][:, 1:] - probs[valid_mask][:, :-1]))
+                    else:
+                        tv_loss = torch.tensor(0.0, device=device)
 
                     # Lambda 0.1
                     combined_loss = loss + 0.1 * tv_loss
             else:
                 logits = model(x)
-                loss = criterion(logits, y)
+                valid_mask = y >= 0
+                
+                if valid_mask.any():
+                    loss = criterion(logits[valid_mask], y[valid_mask])
+                else:
+                    loss = torch.tensor(0.0, device=device)
 
-                # Adding Total Variation Loss for smoother predictions
+                # Adding Total Variation Loss for smoother predictions (only on valid regions)
                 probs = torch.sigmoid(logits)
-                # Calculate the total variation loss by summing the absolute differences between adjacent probabilities
-                tv_loss = torch.mean(torch.abs(probs[:, 1:] - probs[:, :-1]))
+                if valid_mask.any():
+                    tv_loss = torch.mean(torch.abs(probs[valid_mask][:, 1:] - probs[valid_mask][:, :-1]))
+                else:
+                    tv_loss = torch.tensor(0.0, device=device)
 
                 # Lambda 0.1
                 combined_loss = loss + 0.1 * tv_loss
@@ -133,8 +147,12 @@ def train(
             total_loss += loss.detach()
             with torch.no_grad():
                 preds = (probs > 0.5).float()
-                correct += (preds == y).sum()
-            total += y.numel()
+                # Only count accuracy on labeled positions
+                if valid_mask.any():
+                    correct += (preds[valid_mask] == y[valid_mask]).sum()
+                    total += valid_mask.sum().item()
+                else:
+                    total += 0
             
         end_time = time.time()
         avg_loss = (total_loss / len(dataloader)).item()
