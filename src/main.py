@@ -25,6 +25,9 @@ def evaluate(genereateExport=False):
         model = BytesTransformerClassifier(**model_config)
         model.to(device)
 
+        useBf16 = device.type == "cuda" and torch.cuda.is_bf16_supported()
+        print(f"bf16 activé: {useBf16}")
+
         state_dict = checkpoint["model_state_dict"] if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint else checkpoint
         try:
             load_result = model.load_state_dict(state_dict)
@@ -89,7 +92,11 @@ def evaluate(genereateExport=False):
         for _, (data, labels, start_offsets) in enumerate(test_loader):
             data, labels = data.to(device), labels.to(device)
 
-            logits = model(data)
+            if useBf16:
+                with torch.amp.autocast("cuda", dtype=torch.bfloat16, enabled=True):
+                    logits = model(data)
+            else:
+                logits = model(data)
 
             # Convert logits into probs
             probs = torch.sigmoid(logits) # 32*512 | batch_size * sequence_length -> Tensor
