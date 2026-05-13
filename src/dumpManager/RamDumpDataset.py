@@ -2,6 +2,7 @@ import json
 import torch
 from torch.utils.data import Dataset
 import mmap
+import numpy as np
 
 import os
 import sys
@@ -65,7 +66,7 @@ class RamDumpDataset(Dataset):
         segment_end = data_start + self.chunk_size
         chunk = self.ram_data[data_start : data_start + self.chunk_size]
         
-        x = torch.tensor(list(chunk), dtype=torch.long)
+        x = torch.from_numpy(np.frombuffer(chunk, dtype=np.uint8).astype(np.int64))
         y = torch.zeros(self.chunk_size, dtype=torch.float)
 
         temp_idx = meta_idx
