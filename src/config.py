@@ -18,7 +18,7 @@ COMPILE_BACKEND = "aot_eager"
 DEFAULT_CHUNK_SIZE = 512
 DEFAULT_DATASET_OFFSET = 512
 DEFAULT_EVAL_OFFSET = 128
-DEFAULT_BATCH_SIZE = 256 #A passer à 128 dans test 2
+DEFAULT_BATCH_SIZE = 128 #A passer à 128 dans test 2
 DEFAULT_NUM_WORKERS = 8
 DEFAULT_PIN_MEMORY = True
 
@@ -29,17 +29,32 @@ MODEL_CONFIG = {
 	"num_heads": 4,
 	"num_layers": 4,
 	"dim_ff": 512,
-	"dropout": 0.1,
+	"dropout": 0.05,
 	"max_len": DEFAULT_CHUNK_SIZE,
 	"local_conv_kernel_size": 3,
-	"classifier_hidden_dim": 1024, #256 normalement, à 1024 pour test si donner + de place au classifieur améliore les résultats
+	"classifier_hidden_dim": 256, #256 normalement, à 1024 pour test si donner + de place au classifieur améliore les résultats
 }
 
 TRAIN_CONFIG = {
-	"learning_rate": 5e-4,
+	"learning_rate": 5e-4, #Unused if scheduler is enabled, as lr will be managed by the scheduler
 	"weight_decay": 1e-2,
 	"num_epochs": 20,
 	"batch_size": DEFAULT_BATCH_SIZE,
+}
+
+SCHEDULER_CONFIG = {
+	"enabled": True,
+	"type": "cosine",  # "cosine" | "plateau"
+	"cosine": {
+		"T_max": TRAIN_CONFIG["num_epochs"],
+		"eta_min": 1e-6,
+	},
+	"plateau": {
+		"mode": "min",
+		"factor": 0.5,
+		"patience": 4,
+		"min_lr": 1e-6,
+	},
 }
 
 DATASET_CONFIG = {

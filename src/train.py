@@ -54,9 +54,37 @@ def train(
 
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
+    #Scheduler to adjust Lr dynamically during training
+    scheduler = None
+    if cfg.SCHEDULER_CONFIG.get("enabled", False):
+        scheduler_type = cfg.SCHEDULER_CONFIG.get("type", "cosine").lower()
+        if scheduler_type == "cosine":
+            cosine_cfg = cfg.SCHEDULER_CONFIG.get("cosine", {})
+            scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=cosine_cfg.get("T_max", num_epochs),
+                eta_min=cosine_cfg.get("eta_min", 0.0),
+            )
+        elif scheduler_type == "plateau":
+            plateau_cfg = cfg.SCHEDULER_CONFIG.get("plateau", {})
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer,
+                mode=plateau_cfg.get("mode", "min"),
+                factor=plateau_cfg.get("factor", 0.5),
+                patience=plateau_cfg.get("patience", 2),
+                min_lr=plateau_cfg.get("min_lr", 0.0),
+            )
+        else:
+            raise ValueError(f"Type de scheduler non supporté: {scheduler_type}")
+
+    # Use bf16 if supported for faster training and reduced memory usage
     useBf16 = device.type == "cuda" and torch.cuda.is_bf16_supported()
+
     print(f"--- Entraînement sur {device} ---")
-    print(f"bf16 activé: {useBf16}")
+    print(f"Bf16 activé: {useBf16}")
+    if scheduler is not None:
+        print(f"Scheduler activé: {cfg.SCHEDULER_CONFIG.get('type', 'cosine')}")
 
     model.train()
     print("Démarrage de l'entraînement...")
@@ -109,8 +137,15 @@ def train(
             
         end_time = time.time()
         avg_loss = total_loss / len(dataloader)
+        if scheduler is not None:
+            if isinstance(scheduler, optim.lr_scheduler.ReduceLROnPlateau):
+                scheduler.step(avg_loss)
+            else:
+                scheduler.step()
+
         accuracy = correct / total
-        print(f"Epoch {epoch+1} | Loss: {total_loss/len(dataloader):.4f} | Acc: {accuracy:.2%} | Time: {end_time - start_time:.2f}s")
+        current_lr = optimizer.param_groups[0]["lr"]
+        print(f"Epoch {epoch+1} | Loss: {total_loss/len(dataloader):.4f} | Acc: {accuracy:.2%} | LR: {current_lr:.2e} | Time: {end_time - start_time:.2f}s")
 
         checkpoint_path = os.path.join(cfg.CHECKPOINT_DIR, f"checkpoint_epoch_{epoch+1}.pt")
         torch.save({
