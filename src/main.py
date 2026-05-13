@@ -111,9 +111,9 @@ def evaluate(genereateExport=False):
 
             # Build absolute byte indices for each prediction in the batch.
             batch_offsets = start_offsets.cpu().numpy().astype(np.int64)
-            batch_probs = probs.cpu().numpy().astype(np.float32)
-            batch_labels = labels.cpu().numpy().astype(np.float32)
-            batch_conf = confidence.cpu().numpy().astype(np.float32)
+            batch_probs = probs.cpu().float().numpy().astype(np.float32)
+            batch_labels = labels.cpu().float().numpy().astype(np.float32)
+            batch_conf = confidence.cpu().float().numpy().astype(np.float32)
             sample_len = batch_probs.shape[1]
             local_positions = np.arange(sample_len, dtype=np.int64)
             abs_offsets = batch_offsets[:, None] + local_positions[None, :]
