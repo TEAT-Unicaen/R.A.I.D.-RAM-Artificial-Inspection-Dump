@@ -90,8 +90,8 @@ def train(
     print("Démarrage de l'entraînement...")
 
     for epoch in range(num_epochs):
-        total_loss = 0
-        correct = 0
+        total_loss = torch.zeros((), device=device)
+        correct = torch.zeros((), device=device)
         total = 0
         start_time = time.time()
         for batch in dataloader:
@@ -99,7 +99,7 @@ def train(
                 x, y, _ = batch
             else:
                 x, y = batch
-            x, y = x.to(device), y.to(device)
+            x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
             
             optimizer.zero_grad()
             
@@ -130,22 +130,23 @@ def train(
             combined_loss.backward()
             optimizer.step()
             
-            total_loss += loss.item()
-            preds = (torch.sigmoid(logits) > 0.5).float()
-            correct += (preds == y).sum().item()
+            total_loss += loss.detach()
+            with torch.no_grad():
+                preds = (probs > 0.5).float()
+                correct += (preds == y).sum()
             total += y.numel()
             
         end_time = time.time()
-        avg_loss = total_loss / len(dataloader)
+        avg_loss = (total_loss / len(dataloader)).item()
         if scheduler is not None:
             if isinstance(scheduler, optim.lr_scheduler.ReduceLROnPlateau):
                 scheduler.step(avg_loss)
             else:
                 scheduler.step()
 
-        accuracy = correct / total
+        accuracy = (correct / total).item() if total > 0 else 0.0
         current_lr = optimizer.param_groups[0]["lr"]
-        print(f"Epoch {epoch+1} | Loss: {total_loss/len(dataloader):.4f} | Acc: {accuracy:.2%} | LR: {current_lr:.2e} | Time: {end_time - start_time:.2f}s")
+        print(f"Epoch {epoch+1} | Loss: {avg_loss:.4f} | Acc: {accuracy:.2%} | LR: {current_lr:.2e} | Time: {end_time - start_time:.2f}s")
 
         checkpoint_path = os.path.join(cfg.CHECKPOINT_DIR, f"checkpoint_epoch_{epoch+1}.pt")
         torch.save({
