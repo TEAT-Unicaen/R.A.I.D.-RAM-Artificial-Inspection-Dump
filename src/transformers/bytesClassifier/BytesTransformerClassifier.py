@@ -13,10 +13,14 @@ class BytesTransformerClassifier(nn.Module):
         dropout: float = 0.1,
         max_len: int = 5000,
         local_conv_kernel_size: int = 3,
+        padding_idx: int = 256,
+        vocab_size: int = 257,
         classifier_hidden_dim: int | None = None,
     ):
         """
         Args:
+            padding_idx: Embedding padding index (default: 256, representing out-of-range byte value).
+            vocab_size:  Size of byte vocabulary (default: 257, for 256 byte values + 1 padding).
             dim_model:  Embedding/hidden dimension throughout the model.
             num_heads:  Number of self-attention heads.
             num_layers: Number of TransformerEncoder layers.
@@ -25,14 +29,15 @@ class BytesTransformerClassifier(nn.Module):
             max_len:    Maximum sequence length handled by the positional encoding.
         """
         super().__init__()
-        self.padding_idx = 256 # Valeur pour le padding (octet hors plage)
-        self.vocab_size = 257 # 256 valeurs d'octets + 1 pour le padding
+        self.padding_idx = padding_idx
+        self.vocab_size = vocab_size
         if local_conv_kernel_size < 1 or local_conv_kernel_size % 2 == 0:
             raise ValueError("local_conv_kernel_size must be a positive odd integer")
         
         self.embedding = nn.Embedding(self.vocab_size, dim_model, padding_idx=self.padding_idx)
         self.pos_encoder = PositionalEncoding(dim_model, max_len=max_len, dropout=dropout)
 
+        #Convolution related
         self.local_conv = nn.Conv1d(
             in_channels=dim_model,
             out_channels=dim_model,
@@ -43,7 +48,7 @@ class BytesTransformerClassifier(nn.Module):
         if self.local_conv.bias is not None:
             nn.init.zeros_(self.local_conv.bias)
         self.local_conv_activation = nn.SiLU()
-        self.local_conv_dropout = nn.Dropout(dropout)
+        self.local_norm = nn.LayerNorm(dim_model)
         
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=dim_model,
@@ -79,11 +84,14 @@ class BytesTransformerClassifier(nn.Module):
 
         # --- Étape 2 : Embedding + Encodage Positionnel ---
         x = self.embedding(x) * math.sqrt(self.dim_model)
-        x = self.pos_encoder(x)
 
         # --- Étape 2b : Motifs locaux ---
         local_features = self.local_conv(x.transpose(1, 2)).transpose(1, 2)
-        x = x + self.local_conv_dropout(self.local_conv_activation(local_features))
+        x = x + self.local_conv_activation(local_features)
+        x = self.local_norm(x)
+
+        # --- Étape 2c : Positional Encoding ---
+        x = self.pos_encoder(x)
         
         # --- Étape 3 : Passage dans le Transformer ---
         x = self.transformer_encoder(x, src_key_padding_mask=src_key_padding_mask)

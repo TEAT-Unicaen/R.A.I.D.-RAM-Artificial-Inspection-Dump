@@ -15,6 +15,8 @@ DEFAULT_NUM_WORKERS = 4
 DEFAULT_PIN_MEMORY = True
 
 MODEL_CONFIG = {
+       "padding_idx": 256,
+       "vocab_size": 257,
 	"dim_model": 128,
 	"num_heads": 4,
 	"num_layers": 4,
