@@ -47,6 +47,8 @@ def train(
             compile_kwargs = {}
             if getattr(cfg, "COMPILE_BACKEND", None):
                 compile_kwargs["backend"] = cfg.COMPILE_BACKEND
+            if getattr(cfg, "COMPILE_MODE", None):
+                compile_kwargs["mode"] = cfg.COMPILE_MODE
             model = torch.compile(model, **compile_kwargs)
         except Exception as exc:
             print(f"Compilation désactivée automatiquement: {exc}")

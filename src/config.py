@@ -10,10 +10,11 @@ VISUAL_EXPORT_DIR = os.path.join(BASE_DIR, "../output")
 DO_COMPILE_MODEL = True
 
 # "aot_eager" pour compatibilité
-# "max-autotune" pour max perf (need triton ?)
 # "inductor" stable et équilibré (need triton ?)
 # None si pas applicable
 COMPILE_BACKEND = "aot_eager"
+COMPILE_MODE = "max-autotune"  # "default" | "reduce-overhead" | "max-autotune"
+
 
 DEFAULT_CHUNK_SIZE = 512
 DEFAULT_DATASET_OFFSET = 512
@@ -32,7 +33,7 @@ MODEL_CONFIG = {
 	"dropout": 0.05,
 	"max_len": DEFAULT_CHUNK_SIZE,
 	"local_conv_kernel_size": 3,
-	"classifier_hidden_dim": 256, #256 normalement, à 1024 pour test si donner + de place au classifieur améliore les résultats
+	"classifier_hidden_dim": 512, #256 normalement, à 512 pour test si donner + de place au classifieur améliore les résultats
 }
 
 TRAIN_CONFIG = {
