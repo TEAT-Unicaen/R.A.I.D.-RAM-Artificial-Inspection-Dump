@@ -9,11 +9,13 @@ VISUAL_EXPORT_DIR = os.path.join(BASE_DIR, "../output")
 
 DO_COMPILE_MODEL = True
 
-# "aot_eager" pour compatibilité
-# "inductor" stable et équilibré (need triton ?)
-# None si pas applicable
+# "aot_eager" pour compatibilité Windows (ne supporte pas mode)
+# "inductor" stable et équilibré (need triton)
 COMPILE_BACKEND = "aot_eager"
-COMPILE_MODE = "max-autotune"  # "default" | "reduce-overhead" | "max-autotune"
+# "default"
+# "reduce-overhead" pour accélérer les petits modèles (mais peut causer des problèmes de convergence)
+# "max-autotune" pour laisser plus de liberté au backend (peut améliorer les performances mais aussi causer des problèmes de convergence)
+COMPILE_MODE = "default"  # aot_eager ne supporte pas les modes d'optimisation
 
 
 DEFAULT_CHUNK_SIZE = 512

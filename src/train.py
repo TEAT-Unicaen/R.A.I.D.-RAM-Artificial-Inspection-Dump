@@ -115,12 +115,9 @@ def train(
                     else:
                         loss = torch.tensor(0.0, device=device)
 
-                    # Adding Total Variation Loss for smoother predictions (only on valid regions)
+                    # Adding Total Variation Loss for smoother predictions (on full sequence to preserve spatial structure)
                     probs = torch.sigmoid(logits)
-                    if valid_mask.any():
-                        tv_loss = torch.mean(torch.abs(probs[valid_mask][:, 1:] - probs[valid_mask][:, :-1]))
-                    else:
-                        tv_loss = torch.tensor(0.0, device=device)
+                    tv_loss = torch.mean(torch.abs(probs[:, 1:] - probs[:, :-1]))
 
                     # Lambda 0.1
                     combined_loss = loss + 0.1 * tv_loss
@@ -133,12 +130,9 @@ def train(
                 else:
                     loss = torch.tensor(0.0, device=device)
 
-                # Adding Total Variation Loss for smoother predictions (only on valid regions)
+                # Adding Total Variation Loss for smoother predictions (on full sequence to preserve spatial structure)
                 probs = torch.sigmoid(logits)
-                if valid_mask.any():
-                    tv_loss = torch.mean(torch.abs(probs[valid_mask][:, 1:] - probs[valid_mask][:, :-1]))
-                else:
-                    tv_loss = torch.tensor(0.0, device=device)
+                tv_loss = torch.mean(torch.abs(probs[:, 1:] - probs[:, :-1]))
 
                 # Lambda 0.1
                 combined_loss = loss + 0.1 * tv_loss
