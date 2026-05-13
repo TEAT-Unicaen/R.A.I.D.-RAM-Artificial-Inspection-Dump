@@ -13,8 +13,26 @@
 \onehalfspacing
 \sectionfont{\scshape}
 
-% --- Logique des variables internes ---
+% --- Réduit l'espace en haut des chapitres (numérotés et non numérotés) ---
 \makeatletter
+\renewcommand{\@makeschapterhead}[1]{%
+  \vspace*{-30pt}%
+  {\parindent \z@ \raggedright
+    \normalfont
+    \interlinepenalty\@M
+    \Huge \bfseries #1\par\nobreak
+    \vskip 20\p@
+  }}
+\renewcommand{\@makechapterhead}[1]{%
+  \vspace*{-30pt}%
+  {\parindent \z@ \raggedright
+    \normalfont
+    \interlinepenalty\@M
+    \Huge \bfseries \thechapter\quad #1\par\nobreak
+    \vskip 20\p@
+  }}
+
+% --- Logique des variables internes ---
 \newcommand{\supervised}[1]{\gdef\@supervised{#1}}
 \def\@supervised{Aucun encadrant spécifié}
 
@@ -45,16 +63,15 @@
 
 \makeatother
 
-\newenvironment{customabstract}{%
-    \begin{center}%
-      % Ton style spécifique : LARGE et Gras
-      {\LARGE \textbf{Résumé}\par}% 
+\newenvironment{customabstract}{
+    \begin{center}
+      {\LARGE \textbf{Résumé}\par}
       \vspace{1em}
     \end{center}%
-    \quotation % Ajoute des marges à gauche et à droite
-}{%
+    \quotation
+}{
     \endquotation
-    \vspace{2em} % Espace après le résumé pour respirer
+    \newpage
 }
 
 \newcommand{\citefull}[1] {\textit{\citetitle{#1}}~\cite{#1}}
