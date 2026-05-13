@@ -23,6 +23,7 @@ class RamDumpDataset(Dataset):
         self.offset = min(offset, chunk_size)
         self.samples = []
         self.ram_data = None
+        self.f = None  # Keep file handle alive to prevent mmap invalidation
         
         with open(meta_path, 'r') as f:
             self.metadata = json.load(f)
@@ -59,8 +60,8 @@ class RamDumpDataset(Dataset):
 
     def __getitem__(self, idx):
         if self.ram_data is None:
-            f = open(self.bin_path, 'rb')
-            self.ram_data = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+            self.f = open(self.bin_path, 'rb')
+            self.ram_data = mmap.mmap(self.f.fileno(), 0, access=mmap.ACCESS_READ)
         
         data_start, meta_idx = self.samples[idx]
         segment_end = data_start + self.chunk_size
@@ -91,3 +92,16 @@ class RamDumpDataset(Dataset):
         # Also return the absolute start offset to allow stable aggregation
         # across batch boundaries during evaluation/inference.
         return x, y, data_start
+
+    def __del__(self):
+        """Clean up mmap and file resources on deletion."""
+        if self.ram_data is not None:
+            try:
+                self.ram_data.close()
+            except Exception:
+                pass
+        if self.f is not None:
+            try:
+                self.f.close()
+            except Exception:
+                pass
