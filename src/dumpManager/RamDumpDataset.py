@@ -44,16 +44,12 @@ class RamDumpDataset(Dataset):
         self._build_full_label_mask()
 
     def _prepare_samples(self):
+        """Generate sample start positions (O(n) once at init)."""
         bin_size = self.metadata[-1]['de']
         current_pos = 0
-        meta_idx = 0
-        num_meta = len(self.metadata)
 
         while current_pos + self.chunk_size <= bin_size:
-            while meta_idx < num_meta and self.metadata[meta_idx]['de'] <= current_pos:
-                meta_idx += 1
-
-            self.samples.append((current_pos, meta_idx))
+            self.samples.append(current_pos)
             current_pos += self.offset
 
     def _build_full_label_mask(self):
@@ -80,15 +76,13 @@ class RamDumpDataset(Dataset):
             self.f = open(self.bin_path, 'rb')
             self.ram_data = mmap.mmap(self.f.fileno(), 0, access=mmap.ACCESS_READ)
         
-        data_start = self.samples[idx][0]
+        data_start = self.samples[idx]  # O(1) direct access
         chunk = self.ram_data[data_start : data_start + self.chunk_size]
         
         x = torch.from_numpy(np.frombuffer(chunk, dtype=np.uint8).astype(np.int64))
-        # O(1) slice from pre-computed label mask (no iteration needed)
+        # O(1) slice from pre-computed label mask
         y = torch.from_numpy(self.full_label_mask[data_start : data_start + self.chunk_size].copy()).float()
         
-        # Also return the absolute start offset to allow stable aggregation
-        # across batch boundaries during evaluation/inference.
         return x, y, data_start
 
     def __del__(self):
