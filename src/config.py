@@ -7,6 +7,7 @@ MODEL_PATH = os.path.join(BASE_DIR, "../bytes_transformer_classifier_all.pth")
 CHECKPOINT_DIR = os.path.join(BASE_DIR, "../checkpoints")
 VISUAL_EXPORT_DIR = os.path.join(BASE_DIR, "../output")
 
+# Global flag to enable/disable model compilation (torch.compile)
 DO_COMPILE_MODEL = True
 
 # "aot_eager" pour compatibilité Windows (ne supporte pas mode)

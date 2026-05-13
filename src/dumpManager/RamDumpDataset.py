@@ -81,7 +81,7 @@ class RamDumpDataset(Dataset):
         
         x = torch.from_numpy(np.frombuffer(chunk, dtype=np.uint8).astype(np.int64))
         # O(1) slice from pre-computed label mask
-        y = torch.from_numpy(self.full_label_mask[data_start : data_start + self.chunk_size].copy()).float()
+        y = torch.as_tensor(self.full_label_mask[data_start : data_start + self.chunk_size])
         
         return x, y, data_start
 
