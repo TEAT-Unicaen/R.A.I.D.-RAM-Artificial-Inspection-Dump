@@ -42,7 +42,7 @@ MODEL_CONFIG = {
 TRAIN_CONFIG = {
 	"learning_rate": 5e-4, #Unused if scheduler is enabled, as lr will be managed by the scheduler
 	"weight_decay": 1e-2,
-	"num_epochs": 20,
+	"num_epochs": 30,
 	"batch_size": DEFAULT_BATCH_SIZE,
 }
 
