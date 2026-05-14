@@ -101,7 +101,7 @@ def train(
             print(f"Compilation désactivée automatiquement: {exc}")
             print(f"Backends disponibles : {torch._dynamo.list_backends()}")
 
-    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2.0], device=device))
+    criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     #Scheduler to adjust Lr dynamically during training
