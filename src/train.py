@@ -71,7 +71,7 @@ def train(
             optimizer.step()
             
             total_loss += loss.item()
-            preds = (torch.sigmoid(logits) > 0.5).to(dtype=y.dtype)
+            preds = (torch.sigmoid(logits) > 0.5).to(torch.int8)
             correct += (preds == y).sum().item()
             total += y.numel()
             
