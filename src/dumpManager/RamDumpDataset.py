@@ -58,7 +58,7 @@ class RamDumpDataset(Dataset):
         print(f"Building full label mask ({bin_size / 1e6:.1f}MB)...", flush=True)
         
         # Initialize with -1 (padding/unlabeled)
-        self.full_label_mask = np.full(bin_size, -1, dtype=np.float32)
+        self.full_label_mask = np.full(bin_size, -1, dtype=np.int8)
         
         # Fill in labels from metadata in single pass
         for entry in self.metadata:

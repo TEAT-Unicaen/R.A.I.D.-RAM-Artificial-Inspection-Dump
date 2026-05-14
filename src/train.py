@@ -158,7 +158,7 @@ def train(
                     valid_mask = y >= 0
                     
                     if valid_mask.any():
-                        loss = criterion(logits[valid_mask], y[valid_mask])
+                        loss = criterion(logits[valid_mask], y[valid_mask].to(logits.dtype))
                     else:
                         loss = torch.tensor(0.0, device=device)
 
@@ -173,7 +173,7 @@ def train(
                 valid_mask = y >= 0
                 
                 if valid_mask.any():
-                    loss = criterion(logits[valid_mask], y[valid_mask])
+                    loss = criterion(logits[valid_mask], y[valid_mask].to(logits.dtype))
                 else:
                     loss = torch.tensor(0.0, device=device)
 
@@ -218,7 +218,7 @@ def train(
                 
                 v_valid_mask = v_y >= 0
                 if v_valid_mask.any():
-                    v_loss = criterion(v_logits[v_valid_mask], v_y[v_valid_mask])
+                    v_loss = criterion(v_logits[v_valid_mask], v_y[v_valid_mask].to(v_logits.dtype))
                     val_loss += v_loss.item()
                     val_loss_batches += 1
                     
