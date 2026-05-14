@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import time
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 
 from dumpManager.RamDumpDataset import RamDumpDataset
 
@@ -50,23 +50,40 @@ def train(
     if os.path.dirname(cfg.MODEL_PATH):
         os.makedirs(os.path.dirname(cfg.MODEL_PATH), exist_ok=True)
 
-    dataset = RamDumpDataset(
+    full_dataset = RamDumpDataset(
         bin_path=cfg.BIN_PATH, 
         meta_path=cfg.META_PATH, 
         chunk_size=cfg.DATASET_CONFIG["chunk_size"],
         offset=cfg.DATASET_CONFIG["offset"]
     )
 
-    dataloader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=cfg.TRAIN_LOADER_CONFIG["num_workers"],
-        pin_memory=cfg.TRAIN_LOADER_CONFIG["pin_memory"],
-        prefetch_factor=cfg.TRAIN_LOADER_CONFIG["prefetch_factor"],
-        persistent_workers=True,
+    # --- SPLIT TRAIN / VALIDATION (80% / 20%) ---
+    train_size = int(0.8 * len(full_dataset))
+    val_size = len(full_dataset) - train_size
+    
+    # We use a fixed random seed for reproducibility of the split
+    train_dataset, val_dataset = random_split(
+        full_dataset, [train_size, val_size], 
+        generator=torch.Generator().manual_seed(42)
     )
 
+    # --- DATALOADERS ---
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        **cfg.TRAIN_LOADER_CONFIG,
+        persistent_workers=True
+    )
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        **cfg.VAL_LOADER_CONFIG, # We can use the same config for validation loader (num_workers, pin_memory, etc.)
+    )
+
+    # --- MODEL, CRITERION, OPTIMIZER, SCHEDULER ---
     model = BytesTransformerClassifier(**cfg.MODEL_CONFIG)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -84,7 +101,7 @@ def train(
             print(f"Compilation désactivée automatiquement: {exc}")
             print(f"Backends disponibles : {torch._dynamo.list_backends()}")
 
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2.0], device=device))
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     #Scheduler to adjust Lr dynamically during training
@@ -126,7 +143,7 @@ def train(
         correct = torch.zeros((), device=device)
         total = 0
         start_time = time.time()
-        for batch in dataloader:
+        for batch in train_loader:
             if len(batch) == 3:
                 x, y, _ = batch
             else:
@@ -181,7 +198,36 @@ def train(
                     total += 0
             
         end_time = time.time()
-        avg_loss = (total_loss / len(dataloader)).item()
+
+        # --- PHASE DE VALIDATION ---
+        model.eval()
+        val_loss = 0.0
+        val_correct = 0
+        val_total = 0
+        
+        with torch.no_grad():
+            for v_x, v_y, _ in val_loader:
+                v_x, v_y = v_x.to(device), v_y.to(device)
+                
+                if useBf16:
+                    with torch.amp.autocast("cuda", dtype=torch.bfloat16):
+                        v_logits = model(v_x)
+                else:
+                    v_logits = model(v_x)
+                
+                v_valid_mask = v_y >= 0
+                if v_valid_mask.any():
+                    v_loss = criterion(v_logits[v_valid_mask], v_y[v_valid_mask])
+                    val_loss += v_loss.item()
+                    
+                    v_preds = (torch.sigmoid(v_logits) > 0.5).float()
+                    val_correct += (v_preds[v_valid_mask] == v_y[v_valid_mask]).sum().item()
+                    val_total += v_valid_mask.sum().item()
+
+        avg_val_loss = val_loss / len(val_loader) if len(val_loader) > 0 else 0
+        val_accuracy = val_correct / val_total if val_total > 0 else 0
+
+        avg_loss = (total_loss / len(train_loader)).item()
         if scheduler is not None:
             if isinstance(scheduler, optim.lr_scheduler.ReduceLROnPlateau):
                 scheduler.step(avg_loss)
@@ -190,7 +236,19 @@ def train(
 
         accuracy = (correct / total).item() if total > 0 else 0.0
         current_lr = optimizer.param_groups[0]["lr"]
-        print(f"Epoch {epoch+1} | Loss: {avg_loss:.4f} | Acc: {accuracy:.2%} | LR: {current_lr:.2e} | Time: {end_time - start_time:.2f}s")
+        
+        # --- MISE À JOUR DU SCHEDULER (Si Plateau) ---
+        if scheduler is not None:
+            if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                scheduler.step(avg_val_loss) # On step sur la loss de VALIDATION
+            else:
+                scheduler.step()
+
+        # --- LOGS AMÉLIORÉS ---
+        print(f"Epoch {epoch+1} | Train Loss: {avg_loss:.4f} | Train Acc: {accuracy:.2%} | Val Loss: {avg_val_loss:.4f} | "
+              f"Val Acc: {val_accuracy:.2%} | LR: {current_lr:.2e} | Time: {end_time - start_time:.2f}s")
+        
+        model.train() # Repasser en mode train pour l'epoch suivante
 
         checkpoint_path = os.path.join(cfg.CHECKPOINT_DIR, f"checkpoint_epoch_{epoch+1}.pt")
         # Always save unwrapped model state_dict, even if model is compiled

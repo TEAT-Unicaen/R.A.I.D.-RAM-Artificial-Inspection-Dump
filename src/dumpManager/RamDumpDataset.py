@@ -22,8 +22,8 @@ class RamDumpDataset(Dataset):
         self.chunk_size = chunk_size
         self.offset = min(offset, chunk_size)
         self.samples = []
-        self.ram_data = None
-        self.f = None  # Keep file handle alive to prevent mmap invalidation
+        self.ram_data = None # Will hold the mmap object for the binary file, initialized on first access
+        self.f = None
         
         with open(meta_path, 'r') as f:
             self.metadata = json.load(f)

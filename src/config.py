@@ -22,7 +22,7 @@ COMPILE_MODE = "default"  # aot_eager ne supporte pas les modes d'optimisation
 DEFAULT_CHUNK_SIZE = 512
 DEFAULT_DATASET_OFFSET = 512
 DEFAULT_EVAL_OFFSET = 128
-DEFAULT_BATCH_SIZE = 128 #A passer à 128 dans test 2
+DEFAULT_BATCH_SIZE = 128 
 DEFAULT_NUM_WORKERS = 8
 DEFAULT_PIN_MEMORY = True
 
@@ -36,7 +36,7 @@ MODEL_CONFIG = {
 	"dropout": 0.05,
 	"max_len": DEFAULT_CHUNK_SIZE,
 	"local_conv_kernel_size": 3,
-	"classifier_hidden_dim": 256, #256 normalement, à 512 pour test si donner + de place au classifieur améliore les résultats
+	"classifier_hidden_dim": 256, 
 }
 
 TRAIN_CONFIG = {
@@ -79,6 +79,11 @@ TRAIN_LOADER_CONFIG = {
 	"num_workers": DEFAULT_NUM_WORKERS,
 	"pin_memory": DEFAULT_PIN_MEMORY,
 	"prefetch_factor": 4,
+}
+
+VAL_LOADER_CONFIG = {
+	"num_workers": 0, # FIX: Necessary to avoid multiprocessing issues with mmap in
+	"pin_memory": DEFAULT_PIN_MEMORY,
 }
 
 GENERATOR_CONFIG = {
