@@ -227,24 +227,19 @@ def train(
         avg_val_loss = val_loss / len(val_loader) if len(val_loader) > 0 else 0
         val_accuracy = val_correct / val_total if val_total > 0 else 0
 
-        avg_loss = (total_loss / len(train_loader)).item()
-        if scheduler is not None:
-            if isinstance(scheduler, optim.lr_scheduler.ReduceLROnPlateau):
-                scheduler.step(avg_loss)
-            else:
-                scheduler.step()
-
+        avg_loss = total_loss.item() / len(train_loader) if len(train_loader) > 0 else 0
         accuracy = (correct / total).item() if total > 0 else 0.0
-        current_lr = optimizer.param_groups[0]["lr"]
         
-        # --- MISE À JOUR DU SCHEDULER (Si Plateau) ---
+        # --- SCHEDULER UPDATE ---
         if scheduler is not None:
             if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                 scheduler.step(avg_val_loss) # On step sur la loss de VALIDATION
             else:
                 scheduler.step()
 
-        # --- LOGS AMÉLIORÉS ---
+        current_lr = optimizer.param_groups[0]["lr"]
+
+        # --- PRINTING RESULTS ---
         print(f"Epoch {epoch+1} | Train Loss: {avg_loss:.4f} | Train Acc: {accuracy:.2%} | Val Loss: {avg_val_loss:.4f} | "
               f"Val Acc: {val_accuracy:.2%} | LR: {current_lr:.2e} | Time: {end_time - start_time:.2f}s")
         
