@@ -99,6 +99,8 @@ MODEL_CONFIG = {
     "dim_ff": 512,           # Dimension feed-forward
     "dropout": 0.1,          # Dropout rate
     "max_len": 5000,         # Longueur maximale de séquence
+    "local_conv_kernel_size": 3,
+    "classifier_hidden_dim": 256,
 }
 
 # Configuration d'entraînement
@@ -230,9 +232,11 @@ Architecture Transformer pour classification séquence-à-séquence de bytes.
 
 **Architecture:**
 ```
-Entrée (bytes) → Embedding → Positional Encoding → Transformer Encoder → MLP → Logits
-                   256→128        Sinusoïdal          4 couches         SiLU    (classification)
+Entrée (bytes) → Embedding → Conv1D résiduelle → Positional Encoding → Transformer Encoder → MLP → Logits
+                   256→128        motifs locaux       Sinusoïdal          4 couches       MLP élargi
 ```
+
+Les anciens checkpoints ne sont pas tous directement chargeables. Si un checkpoint provient d'une ancienne tête de classification, certains tenseurs du classifier peuvent avoir les mêmes noms mais des dimensions différentes, ce qui empêche leur chargement automatique même avec `strict=False`. Dans ce cas, le checkpoint doit être converti pour ignorer/remplacer ces poids incompatibles, ou le modèle doit être réentraîné pour exploiter pleinement la Conv1D et la tête MLP plus profonde.
 
 ---
 

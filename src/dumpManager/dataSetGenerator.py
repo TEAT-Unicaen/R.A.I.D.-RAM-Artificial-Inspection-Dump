@@ -132,22 +132,13 @@ class MemoryLayout:
         #self._align()
         
         size = len(data)
-        magic = self.rng.choice([0x4141, 0xDEAD, 0xBEEF, self.rng.getrandbits(16)])
-        flags = self.rng.getrandbits(16)
-        header = struct.pack("<IHH", size, flags, magic)
-        totalNeeded = len(header) + size
-
-        if self.offset + totalNeeded <= len(self.ram):
-            headerStart = self.offset
-            self.ram[self.offset : self.offset + 8] = header
-            self.offset += 8
-
+        if self.offset + size <= len(self.ram):
             dataStart = self.offset
-            self.ram[self.offset: self.offset + size] = data
+            self.ram[self.offset : self.offset + size] = data
 
             entry = {
                 "t": label,
-                "ds": headerStart,
+                "ds": dataStart,
                 "de": dataStart + size,
                 "s": size,
                 "f": os.path.basename(originFile)
@@ -158,7 +149,7 @@ class MemoryLayout:
 
             self.metadata.append(entry)
             self.offset += size
-            return totalNeeded
+            return size
         
         return 0
     

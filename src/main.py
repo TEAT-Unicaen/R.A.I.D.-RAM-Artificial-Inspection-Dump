@@ -10,6 +10,21 @@ import config as cfg
 
 from tools.visualizerExport import RaidVisualizerExporter
 
+
+def _unwrap_compiled_state_dict(state_dict):
+    """
+    Remove _orig_mod. prefix from compiled model state_dict keys.
+    Useful when loading checkpoints saved with torch.compile.
+    """
+    unwrapped = {}
+    for key, value in state_dict.items():
+        if key.startswith("_orig_mod."):
+            unwrapped[key[10:]] = value  # Remove "_orig_mod." prefix (10 chars)
+        else:
+            unwrapped[key] = value
+    return unwrapped
+
+
 def evaluate(genereateExport=False):
     if not torch.cuda.is_available():
         print("Aucun GPU détécté, évaluation sur CPU.")
@@ -25,8 +40,22 @@ def evaluate(genereateExport=False):
         model = BytesTransformerClassifier(**model_config)
         model.to(device)
 
+        useBf16 = device.type == "cuda" and torch.cuda.is_bf16_supported()
+        print(f"bf16 activé: {useBf16}")
+
         state_dict = checkpoint["model_state_dict"] if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint else checkpoint
-        model.load_state_dict(state_dict)
+        # Unwrap compiled model state_dict if necessary
+        state_dict = _unwrap_compiled_state_dict(state_dict)
+        try:
+            load_result = model.load_state_dict(state_dict)
+        except RuntimeError as load_error:
+            print(f"Avertissement: chargement strict impossible ({load_error}). Repli sur strict=False.")
+            load_result = model.load_state_dict(state_dict, strict=False)
+
+        if getattr(load_result, "missing_keys", None):
+            print(f"Clés manquantes lors du chargement: {load_result.missing_keys}")
+        if getattr(load_result, "unexpected_keys", None):
+            print(f"Clés inattendues lors du chargement: {load_result.unexpected_keys}")
         print(f"Poids chargés avec succès depuis : {cfg.MODEL_PATH}")
     except FileNotFoundError:
         print(f"ERREUR CRITIQUE : Le fichier modèle '{cfg.MODEL_PATH}' est introuvable.")
@@ -58,6 +87,8 @@ def evaluate(genereateExport=False):
         shuffle=False,
         num_workers=cfg.EVAL_LOADER_CONFIG["num_workers"],
         pin_memory=cfg.EVAL_LOADER_CONFIG["pin_memory"],
+        prefetch_factor=cfg.EVAL_LOADER_CONFIG["prefetch_factor"],
+        persistent_workers=True,
     )
 
     visualizer = RaidVisualizerExporter() if genereateExport else None
@@ -79,36 +110,45 @@ def evaluate(genereateExport=False):
         for _, (data, labels, start_offsets) in enumerate(test_loader):
             data, labels = data.to(device), labels.to(device)
 
-            logits = model(data)
+            if useBf16:
+                with torch.amp.autocast("cuda", dtype=torch.bfloat16, enabled=True):
+                    logits = model(data)
+            else:
+                logits = model(data)
 
             # Convert logits into probs
             probs = torch.sigmoid(logits) # 32*512 | batch_size * sequence_length -> Tensor
             predictions = (probs > 0.5).float() # batch_size * sequence_length
             confidence = torch.abs(probs - 0.5) * 2 # Converts ranges [0.5, 1] to [0, 1] for crypted and [0, 0.5] to [1, 0] for clear
 
-            # Global accuracy at raw prediction level (before vote aggregation).
-            total += labels.numel()
-            correct += (predictions == labels.float()).sum().item()
+            # Only evaluate on labeled positions (ignore label == -1 for padding)
+            valid_labels = labels >= 0
+            if valid_labels.any():
+                total += valid_labels.sum().item()
+                correct += ((predictions[valid_labels] == labels[valid_labels].float()).sum().item())
 
             # Build absolute byte indices for each prediction in the batch.
             batch_offsets = start_offsets.cpu().numpy().astype(np.int64)
-            batch_probs = probs.cpu().numpy().astype(np.float32)
-            batch_labels = labels.cpu().numpy().astype(np.float32)
-            batch_conf = confidence.cpu().numpy().astype(np.float32)
+            batch_probs = probs.cpu().float().numpy().astype(np.float32)
+            batch_labels = labels.cpu().float().numpy().astype(np.float32)
+            batch_conf = confidence.cpu().float().numpy().astype(np.float32)
             sample_len = batch_probs.shape[1]
             local_positions = np.arange(sample_len, dtype=np.int64)
             abs_offsets = batch_offsets[:, None] + local_positions[None, :]
 
             # Safety mask for the last, possibly incomplete, coverage area.
             in_range = (abs_offsets >= 0) & (abs_offsets < bin_size)
-            if not np.any(in_range):
+            # Also mask out unlabeled positions (label == -1)
+            valid_mask = batch_labels >= 0
+            final_mask = in_range & valid_mask
+            if not np.any(final_mask):
                 continue
 
             # Aggregate votes and labels into global buffers using advanced indexing with np.add.at to handle duplicates.
-            flat_offsets = abs_offsets[in_range]
-            flat_probs = batch_probs[in_range]
-            flat_labels = batch_labels[in_range]
-            flat_weights = np.clip(batch_conf[in_range], 1e-6, 1.0)
+            flat_offsets = abs_offsets[final_mask]
+            flat_probs = batch_probs[final_mask]
+            flat_labels = batch_labels[final_mask]
+            flat_weights = np.clip(batch_conf[final_mask], 1e-6, 1.0)
 
             np.add.at(vote_sum, flat_offsets, flat_probs * flat_weights)
             np.add.at(vote_weight, flat_offsets, flat_weights)
