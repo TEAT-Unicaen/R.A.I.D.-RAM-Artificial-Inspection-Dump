@@ -73,7 +73,6 @@ def train(
         batch_size=batch_size,
         shuffle=True,
         **cfg.TRAIN_LOADER_CONFIG,
-        persistent_workers=True
     )
 
     val_loader = DataLoader(
@@ -108,16 +107,21 @@ def train(
     scheduler = None
     if cfg.SCHEDULER_CONFIG.get("enabled", False):
         scheduler_type = cfg.SCHEDULER_CONFIG.get("type", "cosine").lower()
+        warmup_cfg = cfg.SCHEDULER_CONFIG.get("warmup", {})
+        warmup_enabled = warmup_cfg.get("enabled", False)
+        warmup_num_epochs = warmup_cfg.get("num_epochs", 3)
+        
+        # Create the main scheduler based on type
         if scheduler_type == "cosine":
             cosine_cfg = cfg.SCHEDULER_CONFIG.get("cosine", {})
-            scheduler = optim.lr_scheduler.CosineAnnealingLR(
+            main_scheduler = optim.lr_scheduler.CosineAnnealingLR(
                 optimizer,
-                T_max=cosine_cfg.get("T_max", num_epochs),
+                T_max=cosine_cfg.get("T_max", num_epochs) - warmup_num_epochs if warmup_enabled else cosine_cfg.get("T_max", num_epochs),
                 eta_min=cosine_cfg.get("eta_min", 0.0),
             )
         elif scheduler_type == "plateau":
             plateau_cfg = cfg.SCHEDULER_CONFIG.get("plateau", {})
-            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            main_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
                 optimizer,
                 mode=plateau_cfg.get("mode", "min"),
                 factor=plateau_cfg.get("factor", 0.5),
@@ -126,6 +130,21 @@ def train(
             )
         else:
             raise ValueError(f"Type de scheduler non supporté: {scheduler_type}")
+        
+        # Wrap with warmup if enabled
+        if warmup_enabled and scheduler_type != "plateau":
+            warmup_scheduler = optim.lr_scheduler.LinearLR(
+                optimizer,
+                start_factor=0.1,
+                total_iters=warmup_num_epochs,
+            )
+            scheduler = optim.lr_scheduler.SequentialLR(
+                optimizer,
+                schedulers=[warmup_scheduler, main_scheduler],
+                milestones=[warmup_num_epochs],
+            )
+        else:
+            scheduler = main_scheduler
 
     # Use bf16 if supported for faster training and reduced memory usage
     useBf16 = device.type == "cuda" and torch.cuda.is_bf16_supported()
