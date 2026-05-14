@@ -57,20 +57,22 @@ def train(
                 x, y, _ = batch
             else:
                 x, y = batch
-            x, y = x.to(device), y.to(device)
+            x = x.to(device)
+            y = y.to(device)
+            y_loss = y.float()
             
             optimizer.zero_grad()
             
             logits = model(x)
             
-            loss = criterion(logits, y)
+            loss = criterion(logits, y_loss)
             
             loss.backward()
             optimizer.step()
             
             total_loss += loss.item()
             preds = (torch.sigmoid(logits) > 0.5).float()
-            correct += (preds == y).sum().item()
+            correct += (preds == y_loss).sum().item()
             total += y.numel()
             
         end_time = time.time()

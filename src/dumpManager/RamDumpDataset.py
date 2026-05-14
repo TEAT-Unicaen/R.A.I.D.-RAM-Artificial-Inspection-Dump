@@ -62,7 +62,7 @@ class RamDumpDataset(Dataset):
         chunk = self.ram_data[data_start : data_start + self.chunk_size]
         
         x = torch.tensor(list(chunk), dtype=torch.long)
-        y = torch.zeros(self.chunk_size, dtype=torch.float)
+        y = torch.zeros(self.chunk_size, dtype=torch.int8)
 
         temp_idx = meta_idx
         while temp_idx < len(self.metadata):
