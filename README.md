@@ -163,6 +163,19 @@ cd src
 python main.py
 ```
 
+Tester un checkpoint spécifique:
+
+```bash
+cd src
+python main.py --checkpoint checkpoint_epoch_10.pt
+```
+
+Vous pouvez aussi passer un chemin relatif ou absolu:
+
+```bash
+python main.py --checkpoint ../checkpoints/checkpoint_epoch_10.pt
+```
+
 **Sortie attendue:**
 ```
 --- Évaluation sur cuda ---

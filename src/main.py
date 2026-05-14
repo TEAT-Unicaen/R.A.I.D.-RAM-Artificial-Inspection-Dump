@@ -2,6 +2,8 @@ import torch
 from torch.utils.data import DataLoader
 import sys
 import numpy as np
+import os
+import argparse
 
 from collections import defaultdict
 from dumpManager.RamDumpDataset import RamDumpDataset
@@ -9,6 +11,28 @@ from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransfo
 import config as cfg
 
 from tools.visualizerExport import RaidVisualizerExporter
+
+
+def resolve_model_path(checkpoint_name=None):
+    """
+    Resolve model/checkpoint path from an optional CLI argument.
+
+    Accepted values for checkpoint_name:
+    - None: fallback to cfg.MODEL_PATH
+    - simple file name (e.g. checkpoint_epoch_10.pt): searched in cfg.CHECKPOINT_DIR
+    - relative path
+    - absolute path
+    """
+    if not checkpoint_name:
+        return cfg.MODEL_PATH
+
+    if os.path.isabs(checkpoint_name):
+        return checkpoint_name
+
+    if os.path.sep in checkpoint_name or "/" in checkpoint_name:
+        return os.path.abspath(checkpoint_name)
+
+    return os.path.join(cfg.CHECKPOINT_DIR, checkpoint_name)
 
 
 def _unwrap_compiled_state_dict(state_dict):
@@ -25,7 +49,7 @@ def _unwrap_compiled_state_dict(state_dict):
     return unwrapped
 
 
-def evaluate(genereateExport=False):
+def evaluate(genereateExport=False, checkpoint_name=None):
     if not torch.cuda.is_available():
         print("Aucun GPU détécté, évaluation sur CPU.")
         device = torch.device("cpu")
@@ -34,8 +58,9 @@ def evaluate(genereateExport=False):
         print(f"--- Évaluation sur {device} ---")
 
     print("Construction du modèle...")
+    model_path = resolve_model_path(checkpoint_name)
     try:
-        checkpoint = torch.load(cfg.MODEL_PATH, map_location=device)
+        checkpoint = torch.load(model_path, map_location=device)
         model_config = checkpoint.get("model_config", cfg.MODEL_CONFIG) if isinstance(checkpoint, dict) else cfg.MODEL_CONFIG
         model = BytesTransformerClassifier(**model_config)
         model.to(device)
@@ -56,9 +81,9 @@ def evaluate(genereateExport=False):
             print(f"Clés manquantes lors du chargement: {load_result.missing_keys}")
         if getattr(load_result, "unexpected_keys", None):
             print(f"Clés inattendues lors du chargement: {load_result.unexpected_keys}")
-        print(f"Poids chargés avec succès depuis : {cfg.MODEL_PATH}")
+        print(f"Poids chargés avec succès depuis : {model_path}")
     except FileNotFoundError:
-        print(f"ERREUR CRITIQUE : Le fichier modèle '{cfg.MODEL_PATH}' est introuvable.")
+        print(f"ERREUR CRITIQUE : Le fichier modèle '{model_path}' est introuvable.")
         sys.exit(1)
     except Exception as e:
         print(f"ERREUR lors du chargement des poids : {e}")
@@ -284,4 +309,21 @@ def evaluate(genereateExport=False):
         visualizer.saveJson(filepath=f"{cfg.VISUAL_EXPORT_DIR}/raid_evaluation_visualization.json")
 
 if __name__ == "__main__":
-    evaluate(genereateExport=True)
+    parser = argparse.ArgumentParser(description="Évalue le modèle R.A.I.D sur un dump RAM.")
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=None,
+        help=(
+            "Nom de checkpoint (dans checkpoints/), chemin relatif ou absolu. "
+            "Si absent, utilise MODEL_PATH depuis config.py."
+        ),
+    )
+    parser.add_argument(
+        "--no-export",
+        action="store_true",
+        help="Désactive la génération du fichier d'export visualizer.",
+    )
+    args = parser.parse_args()
+
+    evaluate(genereateExport=not args.no_export, checkpoint_name=args.checkpoint)
