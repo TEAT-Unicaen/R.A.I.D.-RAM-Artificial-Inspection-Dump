@@ -48,7 +48,7 @@ TRAIN_CONFIG = {
 
 SCHEDULER_CONFIG = {
 	"enabled": True,
-	"type": "cosine",  # "cosine" | "plateau"
+	"type": "plateau",  # "cosine" | "plateau"
 	"cosine": {
 		"T_max": TRAIN_CONFIG["num_epochs"],
 		"eta_min": 1e-6,
@@ -56,7 +56,7 @@ SCHEDULER_CONFIG = {
 	"plateau": {
 		"mode": "min",
 		"factor": 0.5,
-		"patience": 4,
+		"patience": 2,
 		"min_lr": 1e-6,
 	},
 }

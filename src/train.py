@@ -199,7 +199,7 @@ def train(
             
         end_time = time.time()
 
-        # --- PHASE DE VALIDATION ---
+        # --- VALIDATION PHASE ---
         model.eval()
         val_loss = 0.0
         val_correct = 0
