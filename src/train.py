@@ -202,6 +202,7 @@ def train(
         # --- VALIDATION PHASE ---
         model.eval()
         val_loss = 0.0
+        val_loss_batches = 0
         val_correct = 0
         val_total = 0
         
@@ -219,12 +220,13 @@ def train(
                 if v_valid_mask.any():
                     v_loss = criterion(v_logits[v_valid_mask], v_y[v_valid_mask])
                     val_loss += v_loss.item()
+                    val_loss_batches += 1
                     
                     v_preds = (torch.sigmoid(v_logits) > 0.5).float()
                     val_correct += (v_preds[v_valid_mask] == v_y[v_valid_mask]).sum().item()
                     val_total += v_valid_mask.sum().item()
 
-        avg_val_loss = val_loss / len(val_loader) if len(val_loader) > 0 else 0
+        avg_val_loss = val_loss / val_loss_batches if val_loss_batches > 0 else 0
         val_accuracy = val_correct / val_total if val_total > 0 else 0
 
         avg_loss = total_loss.item() / len(train_loader) if len(train_loader) > 0 else 0
