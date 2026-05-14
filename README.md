@@ -236,7 +236,7 @@ Entrée (bytes) → Embedding → Conv1D résiduelle → Positional Encoding →
                    256→128        motifs locaux       Sinusoïdal          4 couches       MLP élargi
 ```
 
-Les anciens checkpoints restent chargeables, mais ils peuvent afficher des clés manquantes pour les nouveaux paramètres appris. Dans ce cas, il est recommandé de réentraîner le modèle pour exploiter pleinement la Conv1D et la tête MLP plus profonde.
+Les anciens checkpoints ne sont pas tous directement chargeables. Si un checkpoint provient d'une ancienne tête de classification, certains tenseurs du classifier peuvent avoir les mêmes noms mais des dimensions différentes, ce qui empêche leur chargement automatique même avec `strict=False`. Dans ce cas, le checkpoint doit être converti pour ignorer/remplacer ces poids incompatibles, ou le modèle doit être réentraîné pour exploiter pleinement la Conv1D et la tête MLP plus profonde.
 
 ---
 
