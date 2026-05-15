@@ -19,28 +19,30 @@ COMPILE_BACKEND = "aot_eager"
 COMPILE_MODE = "default"  # aot_eager ne supporte pas les modes d'optimisation
 
 
-DEFAULT_CHUNK_SIZE = 512
-DEFAULT_DATASET_OFFSET = 512
+DEFAULT_CHUNK_SIZE = 1024
+DEFAULT_DATASET_OFFSET = 1024
 DEFAULT_EVAL_OFFSET = 128
 DEFAULT_BATCH_SIZE = 128 
+
 DEFAULT_NUM_WORKERS = 8
+DEFAULT_PREFETCH_FACTOR = 2
 DEFAULT_PIN_MEMORY = True
 
 MODEL_CONFIG = {
 	"padding_idx": 256,
 	"vocab_size": 257,
-	"dim_model": 128,
+	"dim_model": 256,
 	"num_heads": 4,
 	"num_layers": 4,
 	"dim_ff": 512,
-	"dropout": 0.05,
+	"dropout": 0.15,
 	"max_len": DEFAULT_CHUNK_SIZE,
 	"local_conv_kernel_size": 3,
 	"classifier_hidden_dim": 256, 
 }
 
 TRAIN_CONFIG = {
-	"learning_rate": 5e-4, #Unused if scheduler is enabled, as lr will be managed by the scheduler
+	"learning_rate": 3e-4,
 	"weight_decay": 1e-2,
 	"num_epochs": 30,
 	"batch_size": DEFAULT_BATCH_SIZE,
@@ -48,7 +50,11 @@ TRAIN_CONFIG = {
 
 SCHEDULER_CONFIG = {
 	"enabled": True,
-	"type": "plateau",  # "cosine" | "plateau"
+	"type": "cosine",  # "cosine" | "plateau"
+    "warmup": {
+		"enabled": True,
+		"num_epochs": 5,
+	},
 	"cosine": {
 		"T_max": TRAIN_CONFIG["num_epochs"],
 		"eta_min": 1e-6,
@@ -78,16 +84,19 @@ EVAL_CONFIG = {
 TRAIN_LOADER_CONFIG = {
 	"num_workers": DEFAULT_NUM_WORKERS,
 	"pin_memory": DEFAULT_PIN_MEMORY,
-	"prefetch_factor": 4,
+	"prefetch_factor": DEFAULT_PREFETCH_FACTOR,
+    "persistent_workers": True,
 }
 
 VAL_LOADER_CONFIG = {
-	"num_workers": 0, # FIX: Necessary to avoid multiprocessing issues with mmap in
+	"num_workers": DEFAULT_NUM_WORKERS//2,
 	"pin_memory": DEFAULT_PIN_MEMORY,
+	"prefetch_factor": DEFAULT_PREFETCH_FACTOR,
+	"persistent_workers": True,
 }
 
 GENERATOR_CONFIG = {
-	"default_size_mb": 50,
+	"default_size_mb": 200,
 	"default_seed": 42,
 	"memory_alignment": 16,
 	"image_fragment_threshold": 5000,
@@ -105,5 +114,5 @@ GENERATOR_CONFIG = {
 EVAL_LOADER_CONFIG = {
 	"num_workers": DEFAULT_NUM_WORKERS,
 	"pin_memory": DEFAULT_PIN_MEMORY,
-	"prefetch_factor": 4,
+	"prefetch_factor": DEFAULT_PREFETCH_FACTOR,
 }
