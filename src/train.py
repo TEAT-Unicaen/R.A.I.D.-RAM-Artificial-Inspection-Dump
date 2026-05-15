@@ -1,4 +1,5 @@
 import os
+import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,6 +11,42 @@ from dumpManager.RamDumpDataset import RamDumpDataset
 
 from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransformerClassifier
 import config as cfg
+
+
+def resolve_checkpoint_path(checkpoint_name=None):
+    """
+    Resolve a training checkpoint path from an optional CLI argument.
+
+    Accepted values for checkpoint_name:
+    - None: start from scratch
+    - simple file name (e.g. checkpoint_epoch_10.pt): searched in cfg.CHECKPOINT_DIR
+    - relative path
+    - absolute path
+    """
+    if not checkpoint_name:
+        return None
+
+    if os.path.isabs(checkpoint_name):
+        return checkpoint_name
+
+    if os.path.sep in checkpoint_name or "/" in checkpoint_name:
+        return os.path.abspath(checkpoint_name)
+
+    return os.path.join(cfg.CHECKPOINT_DIR, checkpoint_name)
+
+
+def _unwrap_compiled_state_dict(state_dict):
+    """
+    Remove _orig_mod. prefix from compiled model state_dict keys.
+    Useful when loading checkpoints saved with torch.compile.
+    """
+    unwrapped = {}
+    for key, value in state_dict.items():
+        if key.startswith("_orig_mod."):
+            unwrapped[key[10:]] = value
+        else:
+            unwrapped[key] = value
+    return unwrapped
 
 def compute_tv_loss(probs, device):
     """
@@ -44,6 +81,7 @@ def train(
     weight_decay=cfg.TRAIN_CONFIG["weight_decay"],
     num_epochs=cfg.TRAIN_CONFIG["num_epochs"],
     batch_size=cfg.TRAIN_CONFIG["batch_size"],
+    checkpoint_name=None,
 ):
 
     os.makedirs(cfg.CHECKPOINT_DIR, exist_ok=True)
@@ -86,7 +124,46 @@ def train(
     model = BytesTransformerClassifier(**cfg.MODEL_CONFIG)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
-    
+
+    criterion = nn.BCEWithLogitsLoss()
+
+    start_epoch = 0
+    resumed_checkpoint_path = resolve_checkpoint_path(checkpoint_name)
+    resumed_checkpoint = None
+    if resumed_checkpoint_path:
+        try:
+            resumed_checkpoint = torch.load(resumed_checkpoint_path, map_location=device)
+            if isinstance(resumed_checkpoint, dict):
+                checkpoint_model_config = resumed_checkpoint.get("model_config", cfg.MODEL_CONFIG)
+                checkpoint_state_dict = resumed_checkpoint.get("model_state_dict", resumed_checkpoint)
+
+                if checkpoint_model_config != cfg.MODEL_CONFIG:
+                    print("Avertissement: la config du modèle du checkpoint diffère de cfg.MODEL_CONFIG.")
+
+                checkpoint_state_dict = checkpoint_state_dict if isinstance(checkpoint_state_dict, dict) else resumed_checkpoint
+                checkpoint_state_dict = _unwrap_compiled_state_dict(checkpoint_state_dict)
+                try:
+                    load_result = model.load_state_dict(checkpoint_state_dict)
+                except RuntimeError as load_error:
+                    print(f"Avertissement: chargement strict impossible ({load_error}). Repli sur strict=False.")
+                    load_result = model.load_state_dict(checkpoint_state_dict, strict=False)
+
+                if getattr(load_result, "missing_keys", None):
+                    print(f"Clés manquantes lors du chargement: {load_result.missing_keys}")
+                if getattr(load_result, "unexpected_keys", None):
+                    print(f"Clés inattendues lors du chargement: {load_result.unexpected_keys}")
+
+                start_epoch = int(resumed_checkpoint.get("epoch", 0))
+                print(f"Reprise de l'entraînement depuis : {resumed_checkpoint_path} (epoch {start_epoch})")
+            else:
+                print(f"Avertissement: le checkpoint '{resumed_checkpoint_path}' n'est pas au format attendu. Entraînement depuis zéro.")
+        except FileNotFoundError:
+            print(f"ERREUR CRITIQUE : Le checkpoint '{resumed_checkpoint_path}' est introuvable.")
+            return
+        except Exception as exc:
+            print(f"ERREUR lors du chargement du checkpoint '{resumed_checkpoint_path}' : {exc}")
+            return
+
     if cfg.DO_COMPILE_MODEL and hasattr(torch, "compile"):
         try:
             print("Tentative de compilation du modèle pour une meilleure performance ...")
@@ -100,8 +177,13 @@ def train(
             print(f"Compilation désactivée automatiquement: {exc}")
             print(f"Backends disponibles : {torch._dynamo.list_backends()}")
 
-    criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
+    if isinstance(resumed_checkpoint, dict) and "optimizer_state_dict" in resumed_checkpoint:
+        try:
+            optimizer.load_state_dict(resumed_checkpoint["optimizer_state_dict"])
+        except Exception as optimizer_error:
+            print(f"Avertissement: impossible de restaurer l'optimizer ({optimizer_error}). Reprise sans son état.")
 
     #Scheduler to adjust Lr dynamically during training
     scheduler = None
@@ -161,7 +243,11 @@ def train(
     model.train()
     print("Démarrage de l'entraînement...")
 
-    for epoch in range(num_epochs):
+    if start_epoch >= num_epochs:
+        print(f"Le checkpoint chargé est déjà à l'epoch {start_epoch}, qui est >= num_epochs ({num_epochs}). Rien à entraîner.")
+        return
+
+    for epoch in range(start_epoch, num_epochs):
         total_loss = torch.zeros((), device=device)
         correct = torch.zeros((), device=device)
         total = 0
@@ -317,7 +403,19 @@ def train(
     print("Entraînement terminé.")
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Entraîne le modèle R.A.I.D.")
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=None,
+        help=(
+            "Nom de checkpoint (dans checkpoints/), chemin relatif ou absolu. "
+            "Si absent, l'entraînement démarre depuis zéro."
+        ),
+    )
+    args = parser.parse_args()
+
     if os.path.exists(cfg.BIN_PATH) and os.path.exists(cfg.META_PATH):
-        train()
+        train(checkpoint_name=args.checkpoint)
     else:
         print("Erreur : Données introuvables. Lancez d'abord le générateur (DumpGenerator).")

@@ -146,6 +146,19 @@ cd src
 python train.py
 ```
 
+Reprendre un entraînement depuis un checkpoint:
+
+```bash
+cd src
+python train.py --checkpoint checkpoint_epoch_10.pt
+```
+
+Vous pouvez aussi passer un chemin relatif ou absolu:
+
+```bash
+python train.py --checkpoint ../checkpoints/checkpoint_epoch_10.pt
+```
+
 **Sortie attendue:**
 ```
 --- Entraînement sur cuda ---
