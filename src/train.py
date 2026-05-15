@@ -192,13 +192,18 @@ def train(
         warmup_cfg = cfg.SCHEDULER_CONFIG.get("warmup", {})
         warmup_enabled = warmup_cfg.get("enabled", False)
         warmup_num_epochs = warmup_cfg.get("num_epochs", 3)
+
+        # Skip warmup if resuming from checkpoint after warmup period
+        if start_epoch > 0 and warmup_enabled and start_epoch >= warmup_num_epochs:
+            warmup_enabled = False
+            print(f"Warmup désactivé (reprise à epoch {start_epoch}, après warmup de {warmup_num_epochs} epochs)")
         
         # Create the main scheduler based on type
         if scheduler_type == "cosine":
             cosine_cfg = cfg.SCHEDULER_CONFIG.get("cosine", {})
             main_scheduler = optim.lr_scheduler.CosineAnnealingLR(
                 optimizer,
-                T_max=cosine_cfg.get("T_max", num_epochs) - warmup_num_epochs if warmup_enabled else cosine_cfg.get("T_max", num_epochs),
+                T_max=max(1, cosine_cfg.get("T_max", num_epochs) - warmup_num_epochs - start_epoch) if warmup_enabled else max(1, cosine_cfg.get("T_max", num_epochs) - start_epoch),
                 eta_min=cosine_cfg.get("eta_min", 0.0),
             )
         elif scheduler_type == "plateau":
@@ -218,12 +223,12 @@ def train(
             warmup_scheduler = optim.lr_scheduler.LinearLR(
                 optimizer,
                 start_factor=0.1,
-                total_iters=warmup_num_epochs,
+                total_iters=max(1, warmup_num_epochs - start_epoch),
             )
             scheduler = optim.lr_scheduler.SequentialLR(
                 optimizer,
                 schedulers=[warmup_scheduler, main_scheduler],
-                milestones=[warmup_num_epochs],
+                milestones=[max(1, warmup_num_epochs - start_epoch)],
             )
         else:
             scheduler = main_scheduler
