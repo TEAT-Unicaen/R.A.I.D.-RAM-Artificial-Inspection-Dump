@@ -149,8 +149,12 @@ def train(
     # Use bf16 if supported for faster training and reduced memory usage
     useBf16 = device.type == "cuda" and torch.cuda.is_bf16_supported()
 
+    # Label smoothing 
+    useLabelSmoothing = cfg.TRAIN_CONFIG.get("label_smoothing", False)
+
     print(f"--- Entraînement sur {device} ---")
     print(f"Bf16 activé: {useBf16}")
+    print(f"Label smoothing activé: {useLabelSmoothing}")
     if scheduler is not None:
         print(f"Scheduler activé: {cfg.SCHEDULER_CONFIG.get('type', 'cosine')}")
 
@@ -177,7 +181,15 @@ def train(
                     valid_mask = y >= 0
                     
                     if valid_mask.any():
-                        loss = criterion(logits[valid_mask], y[valid_mask].to(logits.dtype))
+
+                        if useLabelSmoothing:
+                            y_valid = y[valid_mask].to(logits.dtype)
+                            # --- LABEL SMOOTHING (0.1) ---
+                            smoothing = 0.1
+                            y_smoothed = torch.where(y_valid == 1.0, 1.0 - smoothing, smoothing)
+                            loss = criterion(logits[valid_mask], y_smoothed)
+                        else :
+                            loss = criterion(logits[valid_mask], y[valid_mask].to(logits.dtype))
                     else:
                         loss = torch.tensor(0.0, device=device)
 
@@ -192,7 +204,15 @@ def train(
                 valid_mask = y >= 0
                 
                 if valid_mask.any():
-                    loss = criterion(logits[valid_mask], y[valid_mask].to(logits.dtype))
+
+                    if useLabelSmoothing:
+                        y_valid = y[valid_mask].to(logits.dtype)
+                        # --- LABEL SMOOTHING (0.1) ---
+                        smoothing = 0.1
+                        y_smoothed = torch.where(y_valid == 1.0, 1.0 - smoothing, smoothing)
+                        loss = criterion(logits[valid_mask], y_smoothed)
+                    else:
+                        loss = criterion(logits[valid_mask], y[valid_mask].to(logits.dtype))
                 else:
                     loss = torch.tensor(0.0, device=device)
 
@@ -237,7 +257,14 @@ def train(
                 
                 v_valid_mask = v_y >= 0
                 if v_valid_mask.any():
-                    v_loss = criterion(v_logits[v_valid_mask], v_y[v_valid_mask].to(v_logits.dtype))
+                    if useLabelSmoothing:
+                        v_y_valid = v_y[v_valid_mask].to(v_logits.dtype)
+                        # --- LABEL SMOOTHING (0.1) ---
+                        smoothing = 0.1
+                        v_y_smoothed = torch.where(v_y_valid == 1.0, 1.0 - 0.1, 0.1)
+                        v_loss = criterion(v_logits[v_valid_mask], v_y_smoothed)
+                    else:
+                        v_loss = criterion(v_logits[v_valid_mask], v_y[v_valid_mask].to(v_logits.dtype))
                     val_loss += v_loss.item()
                     val_loss_batches += 1
                     

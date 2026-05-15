@@ -46,6 +46,7 @@ TRAIN_CONFIG = {
 	"weight_decay": 1e-2,
 	"num_epochs": 30,
 	"batch_size": DEFAULT_BATCH_SIZE,
+	"label_smoothing": False,
 }
 
 SCHEDULER_CONFIG = {
