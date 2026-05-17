@@ -76,24 +76,11 @@ class RamDumpDataset(Dataset):
             self.f = open(self.bin_path, 'rb')
             self.ram_data = mmap.mmap(self.f.fileno(), 0, access=mmap.ACCESS_READ)
         
-        data_start = self.samples[idx]  # O(1) direct access
+        data_start = self.samples[idx]
         chunk = self.ram_data[data_start : data_start + self.chunk_size]
         
         x = torch.from_numpy(np.frombuffer(chunk, dtype=np.uint8).astype(np.int64))
-        # O(1) slice from pre-computed label mask
-        y = torch.as_tensor(self.full_label_mask[data_start : data_start + self.chunk_size])
+        y_chunk = self.full_label_mask[data_start : data_start + self.chunk_size].copy()
+        y = torch.from_numpy(y_chunk)
         
         return x, y, data_start
-
-    def __del__(self):
-        """Clean up mmap and file resources on deletion."""
-        if self.ram_data is not None:
-            try:
-                self.ram_data.close()
-            except Exception:
-                pass
-        if self.f is not None:
-            try:
-                self.f.close()
-            except Exception:
-                pass
