@@ -11,43 +11,8 @@ from tqdm import tqdm
 from dumpManager.RamDumpDataset import RamDumpDataset
 
 from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransformerClassifier
+from src.utils.checkpointing import resolve_checkpoint_path, _unwrap_compiled_state_dict
 import config as cfg
-
-
-def resolve_checkpoint_path(checkpoint_name=None):
-    """
-    Resolve a training checkpoint path from an optional CLI argument.
-
-    Accepted values for checkpoint_name:
-    - None: start from scratch
-    - simple file name (e.g. checkpoint_epoch_10.pt): searched in cfg.CHECKPOINT_DIR
-    - relative path
-    - absolute path
-    """
-    if not checkpoint_name:
-        return None
-
-    if os.path.isabs(checkpoint_name):
-        return checkpoint_name
-
-    if os.path.sep in checkpoint_name or "/" in checkpoint_name:
-        return os.path.abspath(checkpoint_name)
-
-    return os.path.join(cfg.CHECKPOINT_DIR, checkpoint_name)
-
-
-def _unwrap_compiled_state_dict(state_dict):
-    """
-    Remove _orig_mod. prefix from compiled model state_dict keys.
-    Useful when loading checkpoints saved with torch.compile.
-    """
-    unwrapped = {}
-    for key, value in state_dict.items():
-        if key.startswith("_orig_mod."):
-            unwrapped[key[10:]] = value
-        else:
-            unwrapped[key] = value
-    return unwrapped
 
 _TV_KERNEL: dict[torch.dtype, torch.Tensor] = {}
 
