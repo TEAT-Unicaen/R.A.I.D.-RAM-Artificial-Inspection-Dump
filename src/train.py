@@ -48,6 +48,8 @@ def _unwrap_compiled_state_dict(state_dict):
             unwrapped[key] = value
     return unwrapped
 
+_TV_KERNEL: dict[torch.dtype, torch.Tensor] = {}
+
 def compute_tv_loss(probs, device):
     """
     Compute Total Variation Loss using 1D convolution (GPU-optimized).
@@ -62,19 +64,12 @@ def compute_tv_loss(probs, device):
     Returns:
         tv_loss: scalar tensor
     """
-    # Reshape for conv1d: (batch, channels=1, length)
-    probs_reshaped = probs.unsqueeze(1)
-    
-    # Kernel: [-1, 1] to compute differences (shape: 1, 1, 2)
-    kernel = torch.tensor([[[-1.0, 1.0]]], device=device, dtype=probs.dtype)
-    
-    # Apply 1D convolution: computes probs[:, i+1] - probs[:, i]
-    diff = F.conv1d(probs_reshaped, kernel, padding=0)
-    
-    # Compute mean absolute difference
-    tv_loss = torch.mean(torch.abs(diff))
-    
-    return tv_loss
+    dtype = probs.dtype
+    if dtype not in _TV_KERNEL:
+        _TV_KERNEL[dtype] = torch.tensor([[[-1.0, 1.0]]], device=device, dtype=dtype)
+    kernel = _TV_KERNEL[dtype]
+    diff = F.conv1d(probs.unsqueeze(1), kernel, padding=0)
+    return torch.mean(torch.abs(diff))
 
 def train(
     learning_rate=cfg.TRAIN_CONFIG["learning_rate"],
