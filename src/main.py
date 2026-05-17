@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 import sys
+from tqdm import tqdm
 import numpy as np
 import os
 import argparse
@@ -132,7 +133,7 @@ def evaluate(genereateExport=False, checkpoint_name=None):
 
     with torch.no_grad():
 
-        for _, (data, labels, start_offsets) in enumerate(test_loader):
+        for _, (data, labels, start_offsets) in enumerate(tqdm(test_loader, desc="Inférence R.A.I.D.", unit="batch")):
             data, labels = data.to(device), labels.to(device)
 
             if useBf16:

@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import time
 from torch.utils.data import DataLoader, random_split
+from tqdm import tqdm
 
 from dumpManager.RamDumpDataset import RamDumpDataset
 
@@ -254,7 +255,8 @@ def train(
         correct = torch.zeros((), device=device)
         total = 0
         start_time = time.time()
-        for batch in train_loader:
+        train_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs} [Train]", unit="batch", leave=False)
+        for batch in train_bar:
             if len(batch) == 3:
                 x, y, _ = batch
             else:
@@ -334,7 +336,8 @@ def train(
         val_total = 0
         
         with torch.no_grad():
-            for v_x, v_y, _ in val_loader:
+            val_bar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{num_epochs} [Val]", unit="batch", leave=False)
+            for v_x, v_y, _ in val_bar:
                 v_x, v_y = v_x.to(device), v_y.to(device)
                 
                 if useBf16:
