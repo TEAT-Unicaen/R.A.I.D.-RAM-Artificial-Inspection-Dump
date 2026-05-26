@@ -69,7 +69,7 @@ class DataProcessor:
         return base64.b64encode(data)
     
     def toCompressed(self, data: bytes) -> bytes:
-        algo = self.rng.choice(['zlib', 'gzip', 'raw_deflate', 'partial'])
+        algo = self.rng.choice(['zlib', 'gzip'])
 
         if algo == 'zlib':
             level = self.rng.choice([1, 6, 9])
@@ -77,15 +77,8 @@ class DataProcessor:
         elif algo == 'gzip':
             level = self.rng.choice([1, 6, 9])
             return gzip.compress(data, compresslevel=level)
-        elif algo == 'raw_deflate':
-            compressor = zlib.compressobj(wbits=-15)
-            return compressor.compress(data) + compressor.flush()
         else:
-            compressed = zlib.compress(data)
-            if len(compressed) > 10:
-                cut = self.rng.randint(len(compressed) // 2, len(compressed) - 5)
-                return compressed[:cut]
-            return compressed
+            raise ValueError("Internal error: Algo de compression inconnu")
     
     def generatePointers(self, count: int) -> bytes:
         pointers = [self.rng.getrandbits(48) for _ in range(count)]
