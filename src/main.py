@@ -3,11 +3,11 @@ from torch.utils.data import DataLoader
 import sys
 from tqdm import tqdm
 import numpy as np
-import os
 import argparse
 
 from collections import defaultdict
 from dumpManager.RamDumpDataset import RamDumpDataset
+from train import train
 from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransformerClassifier
 import config as cfg
 
@@ -289,6 +289,32 @@ if __name__ == "__main__":
         action="store_true",
         help="Désactive la génération du fichier d'export visualizer.",
     )
+    parser.add_argument(
+        "--train",
+        action="store_true",
+        help="Lancement de l'entraînement.",
+    )
+    parser.add_argument(
+        "--no-tv",
+        action="store_true",
+        help="Désactive la Total Variation Loss pour l'entraînement.",
+    )
+    parser.add_argument(
+        "--no-conv",
+        action="store_true",
+        help="Désactive la convolution locale dans le modèle.",
+    )
     args = parser.parse_args()
 
-    evaluate(genereateExport=not args.no_export, checkpoint_name=args.checkpoint)
+    if args.train:
+        train(
+            learning_rate=cfg.TRAIN_CONFIG["learning_rate"],
+            weight_decay=cfg.TRAIN_CONFIG["weight_decay"],
+            num_epochs=cfg.TRAIN_CONFIG["num_epochs"],
+            batch_size=cfg.TRAIN_CONFIG["batch_size"],
+            checkpoint_name=args.checkpoint,
+            use_tv=not args.no_tv,
+            disable_conv=args.no_conv
+        )
+    else:
+        evaluate(generateExport=not args.no_export, checkpoint_name=args.checkpoint)

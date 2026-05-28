@@ -11,7 +11,7 @@ from tqdm import tqdm
 from dumpManager.RamDumpDataset import RamDumpDataset
 
 from transformers.bytesClassifier.BytesTransformerClassifier import BytesTransformerClassifier
-from src.utils.checkpointing import resolve_checkpoint_path, _unwrap_compiled_state_dict
+from utils.checkpointing import resolve_checkpoint_path, _unwrap_compiled_state_dict
 import config as cfg
 
 _TV_KERNEL: dict[torch.dtype, torch.Tensor] = {}
@@ -43,7 +43,17 @@ def train(
     num_epochs=cfg.TRAIN_CONFIG["num_epochs"],
     batch_size=cfg.TRAIN_CONFIG["batch_size"],
     checkpoint_name=None,
+    use_tv=True,
+    disable_conv=False,
 ):
+    
+    print("Paramètres :")
+    print(f"  Taux d'apprentissage : {learning_rate}")
+    print(f"  Decay du poids : {weight_decay}")
+    print(f"  Nombre d'epochs : {num_epochs}")
+    print(f"  Taille du batch : {batch_size}")
+    print(f"  Utiliser la perte de variation totale : {use_tv}")
+    print(f"  Désactiver la convolution locale : {disable_conv}")
 
     os.makedirs(cfg.CHECKPOINT_DIR, exist_ok=True)
     if os.path.dirname(cfg.MODEL_PATH):
@@ -84,7 +94,11 @@ def train(
     )
 
     # --- MODEL, CRITERION, OPTIMIZER, SCHEDULER ---
-    model = BytesTransformerClassifier(**cfg.MODEL_CONFIG)
+    model_kwargs = cfg.MODEL_CONFIG.copy()
+    if disable_conv:
+        model_kwargs["local_conv_kernel_size"] = 1
+
+    model = BytesTransformerClassifier(**model_kwargs)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
@@ -250,10 +264,12 @@ def train(
 
                     # Adding Total Variation Loss for smoother predictions (GPU-optimized with conv1d)
                     probs = torch.sigmoid(logits)
-                    tv_loss = compute_tv_loss(probs, device)
-
-                    # Lambda 0.1
-                    combined_loss = loss + 0.1 * tv_loss
+                    if use_tv:
+                        # Lambda 0.1
+                        tv_loss = compute_tv_loss(probs, device)
+                        combined_loss = loss + 0.1 * tv_loss
+                    else:
+                        combined_loss = loss
             else:
                 logits = model(x)
                 valid_mask = y >= 0
@@ -273,10 +289,13 @@ def train(
 
                 # Adding Total Variation Loss for smoother predictions (GPU-optimized with conv1d)
                 probs = torch.sigmoid(logits)
-                tv_loss = compute_tv_loss(probs, device)
+                if use_tv:
+                    tv_loss = compute_tv_loss(probs, device)
 
-                # Lambda 0.1
-                combined_loss = loss + 0.1 * tv_loss
+                    # Lambda 0.1
+                    combined_loss = loss + 0.1 * tv_loss
+                else:
+                    combined_loss = loss
 
             combined_loss.backward()
             optimizer.step()
