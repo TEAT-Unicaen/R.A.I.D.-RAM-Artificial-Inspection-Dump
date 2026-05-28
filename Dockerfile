@@ -21,7 +21,7 @@ RUN pip3 install \
     numpy \
     matplotlib \
     aiohttp \
-    asyncio
-
+    asyncio \
+    tqdm 
 
 WORKDIR /workspace
