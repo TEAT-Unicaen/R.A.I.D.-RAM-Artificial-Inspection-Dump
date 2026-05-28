@@ -3,7 +3,6 @@
 import os
 import config as cfg
 
-
 def resolve_checkpoint_path(checkpoint_name=None, is_model = False):
     """
     Resolve a training checkpoint path from an optional CLI argument.
