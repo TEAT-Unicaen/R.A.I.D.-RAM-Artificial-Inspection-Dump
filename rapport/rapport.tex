@@ -10,7 +10,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage[french]{babel}
 \usepackage{csquotes}
-\usepackage[backend=biber]{biblatex}
+\usepackage[backend=biber, hyperref=true]{biblatex}
 \usepackage[hidelinks]{hyperref}
 \usepackage{float}
 \usepackage{hhline}
@@ -36,7 +36,8 @@
     Ce projet présente le développement de R.A.I.D. (RAM Artificial Inspection Dump), une solution d'analyse forensique visant à classifier les données issues de la mémoire vive (RAM). L'objectif central est de segmenter des dumps mémoire bruts pour distinguer les données chiffrées des informations non chiffrées (textes, images, PDF) sans connaissance préalable de leur structure. L'approche repose sur l'utilisation d'un modèle d'apprentissage profond de type \textit{Transformer}, capable d'évaluer la prédictibilité des séquences d'octets. La méthodologie comprend la génération d'un jeu de données synthétique, l'entraînement d'un classifieur d'octets avec mécanisme d'attention, et une validation par vote pondéré.
 
     Les résultats démontrent que l'approche s'affranchit des vulnérabilités des méthodes traditionnelles basées sur des signatures statiques, prouvant la viabilité des architectures Transformer pour l'interprétation sémantique de flux binaires bruts. Grâce à la stratégie de vote pondéré, le système parvient à transformer des prédictions locales incertaines en une segmentation globale robuste. Si le modèle isole avec succès les zones chiffrées des structures conventionnelles, la distinction mathématique entre le chiffrement et la forte compression à haute entropie demeure un défi complexe.
-
+    
+    \annot{Change le resumé}
     \end{customabstract}
 
     \tableofcontents
@@ -46,39 +47,78 @@
     \section{Contexte}
     L'analyse forensique de la mémoire vive (RAM) constitue un pilier fondamental de l'informatique légale. Contrairement au stockage persistant, la RAM contient des artéfacts volatils critiques : clés de chiffrement, fragments de documents, ou résidus de textes souvent invisibilisés dans de grandes quantités de données déstructurées.
 
-    Ceci, combiné à l'augmentation constante des capacités de mémoire, et à la multitude de formats de données rend l'inspection manuelle ou basée sur des signatures classiques de plus en plus laborieuse.
+    Jusqu'au années 2000, aucun outils n'étaient concu pour l'analyse, les experts se reposaient sur des méthodes ad hoc, et donc utilisaient des outils générique comme \texttt{strings} ou \texttt{grep} pour récuperer les chaines de caractères. Par la suite, pendant la premiere décennie du siècle, des outils comme \textit{Volatility} ou \textit{Rekall} ont émergé, offrant des capacités d'extraction plus avancées basées sur des signatures statiques.
+
+    Cependant, l'extraction d'informations reste complexe. Bien que ces outils aient progressé, les méthodes traditionnelles reposent souvent sur des signatures statiques, qui sont à la fois rigides et vulnérables à l'obfuscation. De plus, la nature fragmentée des dumps mémoire rend difficile l'identification de structures de données critiques, sans compter la présence de données chiffrées ou compressées qui présentent une entropie élevée et peu de motifs exploitables.
+
+    Dans ce contexte, l'approche par apprentissage automatique, afin de trouver des règles sémentiques dans les flux binaires, offre une alternative prometteuse. Il y a quelque années, le travail de Thomas Gougeon \citefull{analyse_forensique_de_la_memoire_des_cartes_a_puce} ont démontré la capacité d'un modèle de langage à différencier les données chiffrées des données textuelles dans le contexte spécifique des cartes à puce. Cependant, le passage à l'échelle pour traiter des dumps mémoire complets, avec leur diversité de formats et de structures, reste un défi ouvert.
 
     \section{Problématique}
-    Dans ce contexte, le groupe de travail sur la forensique de l'équipe SAFE du laboratoire GREYC a initié des recherches visant à automatiser l'interprétation de dumps mémoire.
+    Comment segmenter de manière fiable et autonome un dump de RAM, en distinguant les données chiffrées, des données non chiffrées, y compris des données complexes telles que des PDF ou des données compressées\,~?
 
-    Si des travaux antérieurs, notamment dans le cadre de thèses sur les cartes à puce, ont permis de distinguer les données chiffrées des informations textuelles sans connaissance préalable du format, le défi actuel réside dans le passage à l'échelle. Il s'agit désormais de traiter des fragments de mémoire arbitraires et des structures complexes comme les fichiers PDF ou les images binaires.
+    La compecité de la tache réside dans la similitude mathématique entre les données chiffrées et compressées, toutes deux à haute entropie. De plus, la fragmentation, se qui créer une discontonuité des les données, rend l'identification de structures de données plus conventionnelles (textes, images) plus difficile.
 
     \section{Objectifs}
     Le projet R.A.I.D. (RAM Artificial Inspection Dump) s'inscrit dans cette dynamique en proposant une approche basée sur l'apprentissage profond. L'objectif central est de développer un système capable de classifier les octets d'un dump de RAM pour déterminer leur nature : chiffrée ou non, et ce de manière autonome.
 
     L'implémentation repose sur l'utilisation de l'architecture \textit{Transformer} et en particulier l'encodeur ainsi que son mécanisme de \textit{self-attention} associé.
 
-    L'hypothèse de travail est qu'un modèle de langage, entraîné à classer des séquences d'octets présentera plus de perplexité sur des données chiffrées et compressés (par nature à forte entropie) tout en identifiant facilement les structures de données plus conventionnelles et prévisibles, telles que du texte brut.
+    L'hypothèse de travail est qu'un modèle de langage, entraîné à classer des séquences d'octets, sera capable de différencier les données chiffrées, des données compressées, par nature à forte entropie, tout en identifiant facilement les structures de données plus conventionnelles et prévisibles, telles que du texte brut.
 
-    Cette différenciation doit permettre à terme de segmenter précisément la mémoire et d'identifier les différents champs de données sans supervision humaine, la difficulté réside dans la similitude d'une donnée chiffrée et compressée sur le plan mathématique.
+    Cette différenciation doit permettre à terme de segmenter précisément la mémoire et d'identifier les différents champs de données sans supervision humaine.
 
 
 
     \chapter{Méthodologie}
-    \section{Collecte de données}
-    Pour constituer notre corpus initial, nous avons agrégé des données issues de trois sources : des documents PDF via l'API d'arXiv, des images via l'API de Lorem Picsum et des textes provenant du projet Gutenberg. Afin de \textit{Transformer} cet échantillon en un jeu de données réaliste et exploitable, ces fichiers bruts sont soumis à un pipeline de transformations reproduisant la diversité des données en mémoire. 
-    
-    Concrètement, des fragments de ces données sont traités selon différentes méthodes (chiffrement AES-256-CBC, compression zlib ou gzip, encodage Base64, extraction de pixels bruts) avant d'être intégrés dans une simulation de capture mémoire (RAM dump) incluant du bruit système. L'outil permet de contrôler la répartition par type de données afin de s'adapter selon les besoins.
+    \section{Générateur de datasets synthétiques}
+    \subsection{Collecte de données}
+    Pour constituer notre corpus initial, nous avons agrégé des données issues de trois sources principales :
 
+    \begin{itemize}
+        \item des textes bruts provenant du \textit{projet Gutenberg}
+        \item des documents PDF via \textit{arXiv}
+        \item des images via \textit{Lorem Picsum}
+    \end{itemize}
+
+
+    Le \textit{projet Gutenberg} est une bibliothèque numérique de plus de $60~000$ livres du domaine public, offrant une grande diversité de textes littéraires. \textit{ArXiv}, quant à lui, fournit un accès à des milliers de documents scientifiques au format PDF. Et enfin, \textit{Lorem Picsum} propose une vaste collection d'images. Les trois services offrent des API permettant de récupérer facilement des données de manière automatisée, ce qui a permis de constituer un corpus initial.
+
+    \subsection{Transformation des données}
+    
+    Afin de transformer cet échantillon en un jeu de données réaliste et exploitable, ces fichiers bruts sont soumis à un pipeline de transformations reproduisant la diversité des données en mémoire. 
+
+    \annot{Agrandir la légende}
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.5\textwidth]{tree.pdf} 
-        \caption{Arbre représentatif des transformations}
+        \caption{Schéma du processus de transformation des données}
         \label{fig:tree}
     \end{figure}
 
-    Nos jeux de données reposent sur une classification binaire distinguant les données chiffrées des données non chiffrées. Afin de simuler des dumps mémoire aussi réalistes et diversifiés que possible pour l'entraînement du modèle, ces deux classes principales englobent une multitude de sous-types. D'une part, la classe des données non chiffrées comprend du texte brut, des documents PDF, des images, des matrices de pixels, ainsi que des données ayant subi des transformations courantes (encodage Base64, algorithmes de compression à taux variables). À cela s'ajoutent du bruit aléatoire (noise) et des simulations de traces système. D'autre part, la classe chiffrée est exclusivement constituée de données traitées via l'algorithme AES, appliquées de manière aléatoire sur les formats sources précédemment cités (PDF, images, textes).
+    Nos trois types de données principaux (Texte, PDF, Images) sont soumis à des transformations detaillées dans \figref{fig:tree}, telles que l'encodage via le \texttt{Base64}, la compression a taux variable via \texttt{zLib} ou \texttt{Gzip}, ou encore le chiffrement via l'algorithme \texttt{AES-256-CBC}.Et la convertion en matrice de pixels RGB pour les images. On crée aussi du bruit aléatoire. Toutes ces transformations sont appliquées avec une seed afin de garantir la reproductibilité du processus tant que les données sources restent inchangées.
 
+    Avec toutes ces transformations, nous obtenons une grande variété de sous-classes de données, que nous etiquetons en fonction de leur nature, \underline{chiffré} ou \underline{non chiffré}. Cette diversité est essentielle pour entraîner un modèle capable de généraliser à des données réelles, qui peuvent être fragmentées, obfusquées ou structurées de manière inattendue.
+
+    Nos deux classes sont donc :
+    \begin{itemize}
+        \item \underline{Non Chiffré}
+        \begin{itemize}
+            \item Texte brut
+            \item PDF
+            \item Image brute, en PNG
+            \item Image convertie en matrice de pixels RGB
+            \item Données compressées via algorithme
+            \item Données encodées via \texttt{Base64}
+            \item Données bruitées
+        \end{itemize}
+        \item \underline{Chiffré}
+        \begin{itemize}
+            \item Les données chiffrées via algorithme
+        \end{itemize}
+    \end{itemize}
+
+    \subsection{Création du segment RAM synthétique}
+    Tout le processus de création du "dump" est reproductible grâce à l'utilisation d'une seed, garantissant que les mêmes données sources génèrent le même dump synthétique à chaque exécution du pipeline. La répartation des différents classes est équilibrée, avec $50\%$ de données chiffrées et $50\%$ de données non chiffrées, afin d'éviter tout biais lors de l'entraînement du modèle. Et chaque type des données non chiffrées est également représenté de manière équilibrée pour garantir une diversité suffisante au sein de cette classe, illustré dans \figref{fig:repartRAM}.
     \begin{figure}[H]
         \centering
         \includegraphics[width=1\textwidth]{repartition_donnees.pdf}
@@ -86,9 +126,8 @@
         \label{fig:repartRAM}
     \end{figure}
 
-    Afin de mener à bien l'apprentissage et l'évaluation du modèle, nous avons généré trois jeux de données dédiés à l'entraînement, à la validation et au test. L'ensemble d'entraînement possède une taille de 1.2~Go dont 20\% sont réservés exclusivement à la validation, tandis que l'ensemble de test mesure 500~Mo. Pour garantir une évaluation non biaisée, ces trois corpus partagent une distribution de classes strictement équilibrée, composée à 50\% de données chiffrées et à 50\% de données en non chiffrées.
-    \section{Création du segment RAM synthétique}
-    Une fois transformées, les données sont injectées dans un espace mémoire contigu (le dump synthétique). Les fichiers ajoutés à cet espace peuvent se retrouver fragmentés et placés à divers endroits, ils ne sont pas simplement ajoutés à la suite. Le générateur détermine la taille et l'emplacement des fragments de manière aléatoire en respectant néanmoins des limites de taille configurées. Cette opération permet de se rapprocher du fonctionnement réel de la ram puisqu'il est rare d'avoir une données stockées en un seul bloc. L'intégralité de l'aléatoire du projet est seedé, donc reproductible.
+        Une fois transformées, les données sont injectées dans un espace mémoire contigu, le dump synthétique. Chaque fichier est découpé en segments de taille variable, entre 1024 et la taille totale du fichier, afin de simuler la fragmentation naturelle des données en RAM. Les segments sont ensuite mélangés de manière aléatoire pour éviter toute corrélation spatiale entre les différentes classes de données, ce qui rend la tâche de classification plus réaliste et complexe pour le modèle.
+
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.7\textwidth]{dump.pdf} 
@@ -96,13 +135,17 @@
         \label{fig:dump}
     \end{figure}
 
-    \section{Modèle de classification}
-    \subsection{Introduction au modèle}
+    \subsection{Construction des différents "dumps"}
+    Avec ce pipeline de génération de données, nous avons construit deux dumps synthétiques de 1,2~Go et 500~Mo, dédiés respectivement à l'entraînement et au test du modèle. Ces dumps sont équilibrés, avec la répartition de \figref{fig:repartRAM}. Pour le dump d'entraînement, $20\%$ des données sont réservées à la validation, afin de suivre l'évolution de la performance du modèle et d'éviter le surapprentissage. Le dump de test, quant à lui, est utilisé pour évaluer la capacité du modèle à généraliser à des données qu'il n'a jamais vues auparavant.
 
-    \subsubsection{Transformers}
+    \section{Le découpage en chunks}
+    Pour permettre au modèle de traiter efficacement les données, le dump est découpé en segments contigus de taille fixe, appelés "chunks". Chaque chunk contient \chunkSize octets, ce qui correspond à la taille maximale que le modèle peut traiter en une seule passe. Ce découpage permet de structurer les données de manière à ce que le modèle puisse apprendre à identifier des motifs locaux au sein de chaque segment. Cependant, ce découpage en chunks introduit une discontinuité artificielle dans les données, car les frontières entre les chunks peuvent couper des structures de données ou des motifs importants. Pour compenser cette limitation, nous avons implémenté une stratégie de "overlapping" (recouvrement) lors de l'inférence, qui sera détaillée dans \secref{sec:overlapping}.
+
+    \section{Modèle de classification}
+    \subsection{Introduction au principe du \textit{Transformer}}
     L'architecture \textit{Transformer} représente un changement de paradigme majeur dans le domaine de l'apprentissage profond (Deep Learning). Introduit par \textit{Google} en 2017 à travers l'article \citefull{attention_is_all_you_need}, ce modèle s'est imposé comme le standard pour le traitement de données séquentielles, notamment dans le traitement automatique des langues (NLP).
-    
-    Contrairement aux architectures récurrentes conventionnelles (RNN et LSTM), qui opèrent par une analyse chronologique et itérative de l'information, le \textit{Transformer} repose sur un principe de parallélisation massive des flux de données.
+
+    Contrairement aux architectures récurrentes conventionnelles (RNN et LSTM), qui opèrent par une analyse chronologique et itérative de l'information, le \textit{Transformer} repose sur un principe de parallélisation massive des flux de données. Ce qui permet de traiter des séquences entières simultanément, sans dépendre de l'ordre d'entrée. Le cœur de cette architecture réside dans le mécanisme d'attention, qui permet au modèle de pondérer l'importance relative de chaque élément d'une séquence par rapport à tous les autres, facilitant ainsi la capture de dépendances à longue distance.
 
     \subsubsection{Architecture Encodeur}
     Un encodeur traite et modélise l'information d'entrée en convertissant des données brutes en représentations vectorielles de haute dimension. Lorsqu'il est utilisé indépendamment d'un décodeur, ce module est particulièrement efficace pour les tâches de classification ou de compréhension sémantique, où la génération de texte n'est pas requise.
@@ -146,13 +189,14 @@
     \end{equation}
 
     \section{\texttt{BytesTransformerClassifier}}
+    \annot{Mettre entrée et non dataset}
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.6\textwidth]{transformerPipeline.pdf} 
-        \caption{Pipeline de classification du \texttt{BytesTransformerClassifier}}
+        \caption{Architecture du réseau : \texttt{BytesTransformerClassifier}}
         \label{fig:transformer_pipeline}
     \end{figure}
-
+    
     \begin{table}[H]
         \centering
         \begin{tabular}{|c|c|}
@@ -178,7 +222,7 @@
         \label{tab:params_raid}
     \end{table}
 
-    Nous avons opté pour une architecture hybride combinant une couche de Convolution unidimensionnelle (\textit{Local Convolution} dans la fig \ref{fig:transformer_pipeline}) en amont du bloc d'encodeur. Cette configuration permet d'extraire des motifs locaux au sein des séquences d'octets, tout en bénéficiant de la capacité du \textit{Transformer} à modéliser les dépendances à longue distance.
+    Nous avons opté pour une architecture hybride combinant une couche de Convolution unidimensionnelle (\textit{Local Convolution} dans \figref{fig:transformer_pipeline}) en amont du bloc d'encodeur. Cette configuration permet d'extraire des motifs locaux au sein des séquences d'octets, tout en bénéficiant de la capacité du \textit{Transformer} à modéliser les dépendances à longue distance.
 
     \section{Entraînement et validation}
     \begin{figure}[H]
@@ -190,9 +234,18 @@
 
     Nous utilisons \texttt{BinaryCrossEntropy}. Ce choix est justfié car nous classifions chaque octet entre deux classes (chiffré ou non chiffré).
     
-    Les paramètres du modèle sont optimisés via AdamW, configuré avec un \textit{weight decay} de $1e^{-2}$ ainsi que le \textit{learning rate} de $1e^{-4}$ afin de régulariser l'apprentissage sur les 1 Go de données synthétiques. Cet optimiseur permet de naviguer efficacement dans l'espace de haute dimension généré par le mécanisme de self-attention.
+    Les paramètres du modèle sont optimisés via AdamW, configuré avec un \textit{weight decay} de $1e^{-2}$ ainsi que le \textit{learning rate} de $1e^{-4}$ afin de régulariser l'apprentissage. Cet optimiseur permet de naviguer efficacement dans l'espace de haute dimension généré par le mécanisme de self-attention.
 
-    \section{Principe de \textit{l'overlapping} (recouvrement)}
+    Pour choisir le meilleur modèle, nous suivons l'évolution de la courbe d'apprentissage sur l'ensemble de validation. Nous sélectionnons le checkpoint qui maximise la précision globale(accuracy) et qui minimise la perte (loss) sur cet ensemble, garantissant ainsi une bonne généralisation du modèle aux données non vues.
+
+    \section{Inference}
+    \annot{Mettre une subsection sur l'inference lui-même}
+    \subsection{Processus d'inférence}
+    Avec le meilleur modèle sélectionné, nous procédons à l'inférence sur le dump de test.
+    Lors de l'inférence, le dump de RAM est traité par segments de \chunkSize octets, conformément à la taille d'entrée du modèle. Chaque segment est passé à travers le classifieur, qui génère une prédiction binaire pour chaque octet, indiquant s'il est chiffré ou non.
+
+
+    \subsection{Principe de \textit{l'overlapping} (recouvrement)} \label{sec:overlapping}
     Le modèle traite le dump mémoire par fenêtres glissantes de \texttt{N} octets. Au lieu de découper la mémoire en blocs contigus, nous utilisons un pas de glissement (stride) inférieur à la taille de la fenêtre. Par conséquent, chaque octet de la RAM est analysé plusieurs fois par le Transformer, au sein de contextes différents.
     \begin{figure}[H]
         \centering
@@ -201,7 +254,6 @@
         \label{fig:overlapping}
     \end{figure}
 
-    \section{Pipeline de vote pondéré}
     Après avoir transformé les logits en probabilités via une fonction sigmoïde, les prédictions locales sont agrégées. Cette étape repose sur une pondération de chaque résultat par le score de confiance associé.
     \begin{gather}
         \text{Confiance}_x = 2 \times |p_x - 0.5| \label{eq:confidence} \\[10pt]
@@ -210,9 +262,11 @@
     \end{gather}
 
     \section{Optimisation}
+    \annot{A voir avec vous, comment le modif}
     Nous sommes arrivés à un stade où nous avions besoin d'augmenter la taille de nos datasets, nous avons donc dû passer par une très grosse phase d'optimisation. Nous avons d'abord repensé la gestion de la mémoire lors du chargement des données en implémentant le \textit{memory mapping} (\texttt{mmap}), ce qui permet d'accéder directement aux segments du dump sans charger l'intégralité du fichier en RAM. Pour éviter les goulots d'étranglement lors de la constitution des batchs, nous avons pré-calculé les masques de labels sur l'ensemble du dataset, garantissant un accès en complexité $O(1)$, le tout couplé à un DataLoader utilisant des persistent workers et un \texttt{prefetch\_factor} élevé. Côté architecture matérielle, nous avons allégé l'empreinte VRAM et accéléré les calculs de notre Transformer en exploitant la précision mixte (bfloat16) et en activant la compilation du graphe PyTorch (\texttt{torch.compile}) via le backend inductor en mode max-autotune. Ce backend reposant sur le compilateur Triton (fortement dépendant de l'environnement), nous avons mis en place une image Docker dédiée afin de garantir la portabilité et la reproductibilité de ces optimisations.
 
     \section{Outils d'analyse}
+    \annot{Avoir d'autres visuelle, et explique comment ca fonctionne, un tuto ?}
     Pour faciliter l'interprétation des erreurs de classification et valider spatialement les prédictions du modèle, nous avons développé une interface de visualisation dédiée en React. Cet outil permet de confronter dynamiquement le dump binaire initial avec les fichiers de logs générés lors de l'inférence. En superposant les prédictions du Transformer à la "vérité terrain" (ground truth), nous pouvons identifier visuellement si les erreurs se concentrent sur des zones spécifiques, comme les transitions entre deux types de données ou les structures internes de certains fichiers.
 
     \begin{figure}[H]

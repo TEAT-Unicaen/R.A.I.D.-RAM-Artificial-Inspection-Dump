@@ -8,6 +8,7 @@
 \RequirePackage{xcolor}
 
 
+
 % --- Configuration des lignes et style ---
 \newcommand{\HRule}[1]{\rule{\linewidth}{#1}}
 \onehalfspacing
@@ -75,3 +76,10 @@
 }
 
 \newcommand{\citefull}[1] {\textit{\citetitle{#1}}~\cite{#1}}
+
+\newcommand{\annot}[1] {\color{red}NEED TO CHANGE: #1\color{black}}
+
+\newcommand{\figref}[1] {la \hyperref[#1]{Figure~\ref*{#1}}}
+\newcommand{\secref}[1] {la \hyperref[#1]{Section~\ref*{#1}}}
+\newcommand{\tabref}[1] {le \hyperref[#1]{Tableau~\ref*{#1}}}
+\newcommand{\equref}[1] {l'\hyperref[#1]{Équation~\ref*{#1}}}
