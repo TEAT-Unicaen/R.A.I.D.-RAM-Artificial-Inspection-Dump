@@ -12,20 +12,20 @@ DO_COMPILE_MODEL = True
 
 # "aot_eager" pour compatibilité Windows (ne supporte pas mode)
 # "inductor" stable et équilibré (need triton)
-COMPILE_BACKEND = "aot_eager"
+COMPILE_BACKEND = "inductor"
 # "default"
 # "reduce-overhead" pour accélérer les petits modèles (mais peut causer des problèmes de convergence)
 # "max-autotune" pour laisser plus de liberté au backend (peut améliorer les performances mais aussi causer des problèmes de convergence)
-COMPILE_MODE = "default"  # aot_eager ne supporte pas les modes d'optimisation
-
+COMPILE_MODE = "max-autotune"  # aot_eager ne supporte pas les modes d'optimisation
+USE_FORKSERVER = True  # if the option is available, use "forkserver" to avoid issues with CUDA in child processes on some platforms
 
 DEFAULT_CHUNK_SIZE = 1024
 DEFAULT_DATASET_OFFSET = 1024
 DEFAULT_EVAL_OFFSET = 128
 DEFAULT_BATCH_SIZE = 128 
 
-DEFAULT_NUM_WORKERS = 8
-DEFAULT_PREFETCH_FACTOR = 2
+DEFAULT_NUM_WORKERS = 4
+DEFAULT_PREFETCH_FACTOR = 4
 DEFAULT_PIN_MEMORY = True
 
 MODEL_CONFIG = {
@@ -44,7 +44,7 @@ MODEL_CONFIG = {
 TRAIN_CONFIG = {
 	"learning_rate": 3e-4,
 	"weight_decay": 1e-2,
-	"num_epochs": 30,
+	"num_epochs": 20,
 	"batch_size": DEFAULT_BATCH_SIZE,
 	"label_smoothing": False,
 }
@@ -97,7 +97,7 @@ VAL_LOADER_CONFIG = {
 }
 
 GENERATOR_CONFIG = {
-	"default_size_mb": 200,
+	"default_size_mb": 1200,
 	"default_seed": 42,
 	"memory_alignment": 16,
 	"image_fragment_threshold": 5000,

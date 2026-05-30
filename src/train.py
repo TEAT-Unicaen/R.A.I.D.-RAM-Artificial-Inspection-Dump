@@ -81,7 +81,7 @@ def train(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        multiprocessing_context="forkserver",
+        multiprocessing_context="forkserver" if cfg.USE_FORKSERVER else None,
         **cfg.TRAIN_LOADER_CONFIG,
     )
 
@@ -89,7 +89,7 @@ def train(
         val_dataset,
         batch_size=batch_size,
         shuffle=False,
-        multiprocessing_context="forkserver",
+        multiprocessing_context="forkserver" if cfg.USE_FORKSERVER else None,
         **cfg.VAL_LOADER_CONFIG, # We can use the same config for validation loader (num_workers, pin_memory, etc.)
     )
 
