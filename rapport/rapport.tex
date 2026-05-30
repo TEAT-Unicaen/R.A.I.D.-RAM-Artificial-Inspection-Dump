@@ -54,9 +54,11 @@
     Dans ce contexte, l'approche par apprentissage automatique, afin de trouver des règles sémentiques dans les flux binaires, offre une alternative prometteuse. Il y a quelque années, le travail de Thomas Gougeon \citefull{analyse_forensique_de_la_memoire_des_cartes_a_puce} ont démontré la capacité d'un modèle de langage à différencier les données chiffrées des données textuelles dans le contexte spécifique des cartes à puce. Cependant, le passage à l'échelle pour traiter des dumps mémoire complets, avec leur diversité de formats et de structures, reste un défi ouvert.
 
     \section{Problématique}
+    \annot{Reformuler la problématique}
+
     Comment segmenter de manière fiable et autonome un dump de RAM, en distinguant les données chiffrées, des données non chiffrées, y compris des données complexes telles que des PDF ou des données compressées\,~?
 
-    La compecité de la tache réside dans la similitude mathématique entre les données chiffrées et compressées, toutes deux à haute entropie. De plus, la fragmentation, se qui créer une discontonuité des les données, rend l'identification de structures de données plus conventionnelles (textes, images) plus difficile.
+    La complexité de la tâche réside dans la similitude mathématique entre les données chiffrées et compressées, toutes deux à haute entropie. De plus, la fragmentation, se qui créer une discontinuité des les données, rend l'identification de structures de données plus conventionnelles (textes, images) plus difficile.
 
     \section{Objectifs}
     Le projet R.A.I.D. (RAM Artificial Inspection Dump) s'inscrit dans cette dynamique en proposant une approche basée sur l'apprentissage profond. L'objectif central est de développer un système capable de classifier les octets d'un dump de RAM pour déterminer leur nature : chiffrée ou non, et ce de manière autonome.
@@ -87,7 +89,6 @@
     
     Afin de transformer cet échantillon en un jeu de données réaliste et exploitable, ces fichiers bruts sont soumis à un pipeline de transformations reproduisant la diversité des données en mémoire. 
 
-    \annot{Agrandir la légende}
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.5\textwidth]{tree.pdf} 
@@ -189,7 +190,6 @@
     \end{equation}
 
     \section{\texttt{BytesTransformerClassifier}}
-    \annot{Mettre entrée et non dataset}
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.6\textwidth]{transformerPipeline.pdf} 
@@ -232,18 +232,20 @@
         \label{fig:training_pipeline}
     \end{figure}
 
-    Nous utilisons \texttt{BinaryCrossEntropy}. Ce choix est justfié car nous classifions chaque octet entre deux classes (chiffré ou non chiffré).
-    
-    Les paramètres du modèle sont optimisés via AdamW, configuré avec un \textit{weight decay} de $1e^{-2}$ ainsi que le \textit{learning rate} de $1e^{-4}$ afin de régulariser l'apprentissage. Cet optimiseur permet de naviguer efficacement dans l'espace de haute dimension généré par le mécanisme de self-attention.
+    Le "dump" est divisé en deux parties avec un \texttt{random\_split}. 80\% des données sont utilisées pour l'entraînement, tandis que les 20\% restants sont réservés à la validation. Le split est reproductible grâce à l'utilisation d'une seed fixe.
 
-    Pour choisir le meilleur modèle, nous suivons l'évolution de la courbe d'apprentissage sur l'ensemble de validation. Nous sélectionnons le checkpoint qui maximise la précision globale(accuracy) et qui minimise la perte (loss) sur cet ensemble, garantissant ainsi une bonne généralisation du modèle aux données non vues.
+    Ensuite, nous calculons la loss principale avec \texttt{BCEWithLogitsLoss}, qui combine une fonction de perte binaire avec une activation sigmoïde intégrée. Nous avons aussi ajouté une TV loss (Total Variation Loss) pour encourager la cohérence spatiale des prédictions, en pénalisant les changements de classe abrupts entre octets adjacents. La loss totale est une combinaison pondérée de ces deux composantes, avec un coefficient $\lambda$, ici de $0.1$, ajusté pour équilibrer leur influence.
+
+    Nous utilisons l'optimiseur AdamW, qui est une variante de l'Adam classique, intégrant une régularisation par poids (weight decay) pour améliorer la généralisation du modèle. Le taux d'apprentissage initial est fixé à $1e-4$. Nous utilisons aussi un scheduler de type \texttt{CosineAnnealingLR} pour ajuster dynamiquement le taux d'apprentissage au cours de l'entraînement, permettant ainsi une convergence plus efficace. Le sheduler plateau était moins efficace. Le warmup linéaire peut être chaîné avant le scheduler principal (sauf avec Plateau) via SequentialLR.
+
+    A la fin de chaque epoch, on save le modele dans un chekpoint
+
+    Pour choisir le meilleur modèle, nous suivons la métrique d'accuracy et le losssur l'ensemble de validation. Le modèle avec la meilleure accuracy et la meilleure loss est sélectionné pour l'inférence finale sur le dump de test.
 
     \section{Inference}
-    \annot{Mettre une subsection sur l'inference lui-même}
     \subsection{Processus d'inférence}
     Avec le meilleur modèle sélectionné, nous procédons à l'inférence sur le dump de test.
     Lors de l'inférence, le dump de RAM est traité par segments de \chunkSize octets, conformément à la taille d'entrée du modèle. Chaque segment est passé à travers le classifieur, qui génère une prédiction binaire pour chaque octet, indiquant s'il est chiffré ou non.
-
 
     \subsection{Principe de \textit{l'overlapping} (recouvrement)} \label{sec:overlapping}
     Le modèle traite le dump mémoire par fenêtres glissantes de \texttt{N} octets. Au lieu de découper la mémoire en blocs contigus, nous utilisons un pas de glissement (stride) inférieur à la taille de la fenêtre. Par conséquent, chaque octet de la RAM est analysé plusieurs fois par le Transformer, au sein de contextes différents.
