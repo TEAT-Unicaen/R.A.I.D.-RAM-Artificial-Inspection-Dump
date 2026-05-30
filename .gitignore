@@ -30,15 +30,11 @@ goldStandard/
 
 
 #Latex files
-*.aux
-*.bbl
-*.bcf
-*.fdb_latexmk
-*.fls
-*.log
-*.run.xml
-*.synctex.gz
-*.toc
-*.out
-*.bbl-SAVE-ERROR
-*.blg
+/rapport/**
+!/rapport/*.tex
+!/rapport/*.bib
+!/rapport/assets/**
+!/rapport/*.pdf
+!/rapport/*.sty
+!/rapport/*.sh
+!/rapport/*.bat

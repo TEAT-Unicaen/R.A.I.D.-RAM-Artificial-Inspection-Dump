@@ -54,7 +54,7 @@
     Dans ce contexte, l'approche par apprentissage automatique, afin de trouver des règles sémentiques dans les flux binaires, offre une alternative prometteuse. Il y a quelque années, le travail de Thomas Gougeon \citefull{analyse_forensique_de_la_memoire_des_cartes_a_puce} ont démontré la capacité d'un modèle de langage à différencier les données chiffrées des données textuelles dans le contexte spécifique des cartes à puce. Cependant, le passage à l'échelle pour traiter des dumps mémoire complets, avec leur diversité de formats et de structures, reste un défi ouvert.
 
     \section{Problématique}
-    \annot{Reformuler la problématique}
+    \annot{Reformuler la problématique ?}
 
     Comment segmenter de manière fiable et autonome un dump de RAM, en distinguant les données chiffrées, des données non chiffrées, y compris des données complexes telles que des PDF ou des données compressées\,~?
 
@@ -228,7 +228,7 @@
     \begin{figure}[H]
         \centering
         \includegraphics[width=1\textwidth]{trainningPipeline.pdf} 
-        \caption{Pipeline d'entraînement du modèle}
+        \caption{Processus d'entraînement du modèle}
         \label{fig:training_pipeline}
     \end{figure}
 
@@ -245,7 +245,7 @@
     \section{Inference}
     \subsection{Processus d'inférence}
     Avec le meilleur modèle sélectionné, nous procédons à l'inférence sur le dump de test.
-    Lors de l'inférence, le dump de RAM est traité par segments de \chunkSize octets, conformément à la taille d'entrée du modèle. Chaque segment est passé à travers le classifieur, qui génère une prédiction binaire pour chaque octet, indiquant s'il est chiffré ou non.
+    Lors de l'inférence, le dump de RAM est traité par segments de \chunkSize{} octets, conformément à la taille d'entrée du modèle. Chaque segment est passé à travers le classifieur, qui génère une prédiction binaire pour chaque octet, indiquant s'il est chiffré ou non.
 
     \subsection{Principe de \textit{l'overlapping} (recouvrement)} \label{sec:overlapping}
     Le modèle traite le dump mémoire par fenêtres glissantes de \texttt{N} octets. Au lieu de découper la mémoire en blocs contigus, nous utilisons un pas de glissement (stride) inférieur à la taille de la fenêtre. Par conséquent, chaque octet de la RAM est analysé plusieurs fois par le Transformer, au sein de contextes différents.
@@ -264,11 +264,31 @@
     \end{gather}
 
     \section{Optimisation}
-    \annot{A voir avec vous, comment le modif}
-    Nous sommes arrivés à un stade où nous avions besoin d'augmenter la taille de nos datasets, nous avons donc dû passer par une très grosse phase d'optimisation. Nous avons d'abord repensé la gestion de la mémoire lors du chargement des données en implémentant le \textit{memory mapping} (\texttt{mmap}), ce qui permet d'accéder directement aux segments du dump sans charger l'intégralité du fichier en RAM. Pour éviter les goulots d'étranglement lors de la constitution des batchs, nous avons pré-calculé les masques de labels sur l'ensemble du dataset, garantissant un accès en complexité $O(1)$, le tout couplé à un DataLoader utilisant des persistent workers et un \texttt{prefetch\_factor} élevé. Côté architecture matérielle, nous avons allégé l'empreinte VRAM et accéléré les calculs de notre Transformer en exploitant la précision mixte (bfloat16) et en activant la compilation du graphe PyTorch (\texttt{torch.compile}) via le backend inductor en mode max-autotune. Ce backend reposant sur le compilateur Triton (fortement dépendant de l'environnement), nous avons mis en place une image Docker dédiée afin de garantir la portabilité et la reproductibilité de ces optimisations.
+    Afin d'aller plus loin sur le projet, nous avons eu besoin de monter significativement nos volumes de données synthétiques pour le train ainsi que le nombre d'époques. Nous avons donc dû trouver des optimisations afin d'exploiter le plus possible nôtre matériel.
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=1\textwidth]{nsight_before.png} 
+        \caption{Goulot d'étranglement entre le CPU et le GPU avant optimisation, visualisé avec \textit{NVIDIA Nsight Systems}}
+        \label{fig:nsight_before}
+    \end{figure}
+
+    Premièrement nous avons identifié un goulot d'étranglement entre le CPU et le GPU, comme nous pouvons le voir sur \figref{fig:nsight_before}. Afin de résoudre ce problème nous avons configuré des options de parallélisation avancées sur les \texttt{Dataloaders} notamment via les \texttt{persistent\_workers}, un \texttt{prefetch\_factor} élevé et une refonte du code lié au \texttt{\_\_getitem\_\_}. Comme nous pouvons le voir sur \figref{fig:nsight_after}, cela à fonctionné comme espéré.
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=1\textwidth]{nsight_after.png} 
+        \caption{Parallélisation efficace du pipeline de données après optimisation, visualisé avec \textit{NVIDIA Nsight Systems}}
+        \label{fig:nsight_after}
+    \end{figure}
+
+    Dans un second temps, nous avons maximisé la vitesse d'entraînement. Nous avons adopté la précision mixte, \textit{bfloat16}, permettant de réduire la consommation de VRAM par deux et d'accélérer le temps d'entraînement par deux. De plus, nous avons activé torch.compile avec le backend Inductor en mode max-autotune. Contrairement à une approche standard, ce mode réalise un benchmark exhaustif sur notre architecture, une \textit{RTX 5080} : le compilateur génère et exécute physiquement des variantes de noyaux Triton pour chaque segment du graphe de calcul. Cette recherche identifie la stratégie de fusion de noyaux offrant la latence la plus faible. Bien que cette phase d'autotuning ajoute environ $400$ secondes au lancement, elle génère un gain de performance de $27,45\%$ par époque, elle est donc intéressante sur l'entraînement mais également sur des inférences qui seraient longues.
+
+    Enfin, la Total Variation Loss a été réimplémentée sous forme de convolution 1D. Cette approche exploite pleinement la parallélisation massive des cœurs CUDA, rendant ce calcul quasi instantané par rapport à une approche itérative classique sur CPU.
 
     \section{Outils d'analyse}
     \annot{Avoir d'autres visuelle, et explique comment ca fonctionne, un tuto ?}
+
     Pour faciliter l'interprétation des erreurs de classification et valider spatialement les prédictions du modèle, nous avons développé une interface de visualisation dédiée en React. Cet outil permet de confronter dynamiquement le dump binaire initial avec les fichiers de logs générés lors de l'inférence. En superposant les prédictions du Transformer à la "vérité terrain" (ground truth), nous pouvons identifier visuellement si les erreurs se concentrent sur des zones spécifiques, comme les transitions entre deux types de données ou les structures internes de certains fichiers.
 
     \begin{figure}[H]
@@ -279,6 +299,7 @@
     \end{figure}
 
     \chapter{Résultats}
+
     \section{Courbes d'apprentissage}
         \begin{figure}[H]
             \centering
@@ -286,6 +307,7 @@
             \caption{Courbes d'apprentissage du modèle}
             \label{fig:learning_curves}
         \end{figure}
+        \annot{Ajouter une explication des courbes}
 
     \section{Performance Globales}
     \subsection{Métriques d'évaluation}
@@ -307,6 +329,7 @@
         \caption{Performances globales du classifieur RAID}
         \label{tab:performances_globales}
     \end{table}
+    \annot{Ajouter un explicatif sur les métriques}
 
     \subsection{Le vote pondéré}
     \begin{table}[H]
@@ -323,7 +346,11 @@
         \label{tab:performances_vote_pondere}
     \end{table}
 
+    Comme on peut le lire que \tabref{tab:performances_vote_pondere}, le vote pondéré a permis d'améliorer l'accuracy de 1,2 points, soit une réduction de l'erreur de 9,67\%. Cette amélioration significative souligne l'efficacité de cette stratégie pour stabiliser les prédictions du modèle et réduire les artefacts de classification.
+
     \subsection{Matrices de confusion}
+    Les performances du modèl ont été analysées plus finimùent avec des matrices de confusion, à la fois au niveau global (chiffré vs non chiffré) et au niveau des sous-classes (texte, PDF, image, données compressées, données chiffrées). Ces matrices permettent d'identifier les types de données qui sont les plus souvent confondus par le modèle.
+
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.7\textwidth]{confusion_matrix_by_classes.pdf} 
@@ -331,18 +358,19 @@
         \label{fig:confusion_matrix_classes}
     \end{figure}
 
+    Comme le montre \figref{fig:confusion_matrix_classes}, le modèle ateint une précision de 95,61\% sut la détection de contenus chiffrés et de 86,34\% pour les contenus non chiffrés. Cela indique que le modèle est plus performant pour identifier les données chiffrées, avec un faible taux de faux négatifs, de 4,39\%. 
+
     \begin{figure}[H]
         \centering
         \includegraphics[width=1\textwidth]{confusion_matrix_by_subclasses.pdf} 
-        \caption{Matrice de confusion du modèle}
+        \caption{Matrice de confusion du modèle, detaillé par type de données}
         \label{fig:confusion_matrix_subclasses}
     \end{figure}
 
-
-
-
+    Pour comprendre ces erreurs, nous avons décomposés les resultats sur chaque type de données, \figref{fig:confusion_matrix_subclasses}. On observe que les données compressées sont confondues avec des données chiffrées. En revanche, les données textuelles, les PDF et les images sont très bien différenciés du chiffrement, avec des taux de précision respectifs de proche de 100\%.
 
     \chapter{Discussion}
+    \annot{Pas touché}
     \section{Performance du vote pondéré}
     L'un des défis majeurs de l'analyse de dumps mémoire par un \textit{Transformer} réside dans la volatilité des prédictions locales. Un segment de données peut présenter des caractéristiques ambiguës (par exemple, un en-tête de fichier compressé ressemblant à du texte structuré) qui induisent le modèle en erreur s'il est analysé de manière isolée. 
 
@@ -419,6 +447,8 @@
 
 
     \chapter{Conclusion}
+    \annot{Pas touché, faut une problematique que tout lz monde soit d'accord}
+
     Le projet R.A.I.D. (RAM Artificial Inspection Dump) a permis de démontrer l'efficacité des architectures \textit{Transformer} pour l'analyse automatisée de la mémoire vive, un domaine où la volumétrie et la fragmentation des données rendent les méthodes traditionnelles de moins en moins opérantes. En nous affranchissant des signatures statiques au profit d'une approche basée sur la compréhension statistique des flux binaires, nous avons développé un outil capable de segmenter un dump mémoire avec une précision de 88,79\%.
 
     L'implémentation du modèle \texttt{BytesTransformerClassifier}, couplée à une couche de convolution locale et à un mécanisme de \textit{self-attention}, a prouvé sa capacité à identifier la nature profonde des données (texte, images, documents) même en l'absence de métadonnées ou d'en-têtes explicites. L'introduction du pipeline de vote pondéré a constitué une étape clé de notre méthodologie, permettant de stabiliser les prédictions et de réduire significativement le bruit de classification inhérent à l'analyse par fenêtres glissantes.
