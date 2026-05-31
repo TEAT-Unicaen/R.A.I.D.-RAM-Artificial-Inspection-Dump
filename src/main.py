@@ -14,7 +14,7 @@ import config as cfg
 from tools.visualizerExport import RaidVisualizerExporter
 from utils.checkpointing import resolve_checkpoint_path, _unwrap_compiled_state_dict
 
-def evaluate(genereateExport=False, checkpoint_name=None):
+def evaluate(generateExport=False, checkpoint_name=None):
     if not torch.cuda.is_available():
         print("Aucun GPU détécté, évaluation sur CPU.")
         device = torch.device("cpu")
@@ -81,7 +81,7 @@ def evaluate(genereateExport=False, checkpoint_name=None):
         persistent_workers=True,
     )
 
-    visualizer = RaidVisualizerExporter() if genereateExport else None
+    visualizer = RaidVisualizerExporter() if generateExport else None
 
     print("Démarrage de l'analyse...")
     total, correct = 0, 0
