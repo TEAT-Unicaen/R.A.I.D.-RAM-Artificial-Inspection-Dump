@@ -10,11 +10,11 @@
 \usepackage[utf8]{inputenc}
 \usepackage[french]{babel}
 \usepackage{csquotes}
-\usepackage[backend=biber, hyperref=true]{biblatex}
-\usepackage[hidelinks]{hyperref}
+\usepackage[backend=biber, hyperref=true, style=mla]{biblatex}
+\usepackage{hyperref}
 \usepackage{float}
 \usepackage{hhline}
-\usepackage{xcolor}
+\usepackage[dvipsnames]{xcolor}
 
 \usepackage{raidUtils}
 \graphicspath{{./assets/img/}{./assets/pdf/}}
@@ -153,7 +153,7 @@
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.3\textwidth]{architecture_encodeur.png} 
-        \caption{Illustration d'un encodeur du papier \citefull{attention_is_all_you_need}}
+        \caption{Illustration d'un encodeur du papier \protect\citefull{attention_is_all_you_need}}
         \label{fig:encodeur}
     \end{figure}
 
@@ -287,29 +287,89 @@
     Enfin, la Total Variation Loss a été réimplémentée sous forme de convolution 1D. Cette approche exploite pleinement la parallélisation massive des cœurs CUDA, rendant ce calcul quasi instantané par rapport à une approche itérative classique sur CPU.
 
     \section{Outils d'analyse}
-    \annot{Avoir d'autres visuelle, et explique comment ca fonctionne, un tuto ?}
-
-    Pour faciliter l'interprétation des erreurs de classification et valider spatialement les prédictions du modèle, nous avons développé une interface de visualisation dédiée en React. Cet outil permet de confronter dynamiquement le dump binaire initial avec les fichiers de logs générés lors de l'inférence. En superposant les prédictions du Transformer à la "vérité terrain" (ground truth), nous pouvons identifier visuellement si les erreurs se concentrent sur des zones spécifiques, comme les transitions entre deux types de données ou les structures internes de certains fichiers.
+    Pour analyser les résultats nous avons développé un visualiseur de données, qui permet de superposer les classifications du modèle à la vérité. Il s'agit d'une interface graphique web développée en \textit{React} avec un \texttt{<canvas>}.
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.9\textwidth]{viewer_multiple.png} 
+        \caption{Interface de visualisation des données}
+        \label{fig:viewer_multiple}
+    \end{figure}
+    Le visualiseur cartographie visuellement la mémoire en attribuant une couleur spécifique à chaque type de données (PDF, image, texte, etc.), comme dans \figref{fig:viewer_multiple}. En superposant les classifications du Transformer à la vérité terrain, l'outil met en surbrillance rouge les erreurs, \figref{fig:viewer_error}, offrant ainsi une capacité d'analyse granulaire à l'octet près.
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.9\textwidth]{viewer_error.png} 
+        \caption{Interface de visualisation des erreurs de classification du modèle}
+        \label{fig:viewer_error}
+    \end{figure}
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.9\textwidth]{viewer_hover.png} 
+        \caption{Interface de visualisation des détails d'une erreur de classification}
+        \label{fig:viewer_hover}
+    \end{figure}
+    Sur ces segements, où les erreurs sont surlignées en rouge, il est possible d'avoir un détail sur l'erreur, \figref{fig:viewer_hover}. De plus, en cliquant sur un ségment, il est possible d'accéder directement au détail de ce bloc, c'est-à-dire la donnée brute sous forme hexadécimal, montré dans \figref{fig:viewer_detail}. Cela permet ainsi d'identifier éventuellement des suites vite dans une donnée par exemple.
 
     \begin{figure}[H]
         \centering
-        \includegraphics[width=0.9\textwidth]{viewer.png} 
-        \caption{Interface de visualisation des prédictions du modèle}
-        \label{fig:visualization_tool}
+        \includegraphics[width=0.9\textwidth]{viewer_detail.png}
+        \caption{Interface de visualisation du détail d'une erreur de classification}
+        \label{fig:viewer_detail}
     \end{figure}
 
-    \chapter{Résultats}
+    C'est l'exploitation de cet outil qui nous a permis d'observer visuellement que les erreurs se concentraient principalement aux frontières des segments, lors des transitions entre deux types de données. Cette découverte a directement motivé l'implémentation du mécanisme de vote pondéré détaillé précédemment.
 
-    \section{Courbes d'apprentissage}
-        \begin{figure}[H]
-            \centering
-            \includegraphics[width=0.75\textwidth]{validation_graph.pdf} 
-            \caption{Courbes d'apprentissage du modèle}
-            \label{fig:learning_curves}
-        \end{figure}
-        \annot{Ajouter une explication des courbes}
+    \chapter{Résultats}
+    \section{Le vote pondéré}
+    \begin{table}[H]
+        \centering
+        \begin{tabular}{|c|c|c|}
+            \cline{1-2}
+            \multicolumn{2}{|c|}{Accuracy} & \multicolumn{1}{c}{} \\
+            \hline
+            Sans vote pondéré & Avec vote pondéré & Diminution de l'erreur \\
+            \hhline{|=|=|=|}
+            87,59\% & 88,79\% & 9.67\% \\ \hline
+        \end{tabular}
+        \caption{Performances du vote pondéré}
+        \label{tab:performances_vote_pondere}
+    \end{table}
+
+    Comme on peut le lire que \tabref{tab:performances_vote_pondere}, le vote pondéré a permis d'améliorer l'accuracy de 1,2 points, soit une réduction de l'erreur de 9,67\%. Cette amélioration significative souligne l'efficacité de cette stratégie pour stabiliser les prédictions du modèle et réduire les artefacts de classification.
+
+    \section{Comparaison des configurations du modèle}
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.75\textwidth]{comparaison_performances.pdf} 
+        \caption{Courbes d'apprentissage du modèle {\small (axes des abscisses en échelle logarithmique)}}
+        \label{fig:comparaison_performances}
+    \end{figure}
+    
+    Les resultats ci-dessus, \figref{fig:comparaison_performances}, sont obtenu sur des petits jeux de données, 50~Mo, afin de montrer une tendance de l'utilisation ou non du \textit{TV Loss} ou de la convalution. La configuration avec \textit{TVLoss} et Convolution (courbe bleu foncé) se distingue comme étant la plus performante sur l'ensemble de la période d'entraînement. En observant l'évolution de l'exactitude de validation, cette configuration atteint les niveaux les plus élevés, culminant au-delà de $90\%$ d'exactitude vers la fin des $20$ époques. Parallèlement, elle démontre une stabilité remarquable dans la réduction de la perte de validation, se maintenant aux alentours de $0.30$ après une phase de stabilisation initiale. À l'inverse, les configurations dépourvues de convolution présentent une plus grande instabilité, avec des fluctuations marquées de la perte et une progression plus lente de l'exactitude, soulignant l'apport crucial de l'architecture convolutive pour la convergence du modèle.
+
+    Ici on aurais donc choisi le modèle, avec \textit{TVLoss} et Convolution, à l'époque 15, qui présente un bon compromis entre l'exactitude et la perte.
 
     \section{Performance Globales}
+    \subsection{Matrices de confusion}
+    Les performances du modèl ont été analysées plus finimùent avec des matrices de confusion, à la fois au niveau global (chiffré vs non chiffré) et au niveau des sous-classes (texte, PDF, image, données compressées, données chiffrées). Ces matrices permettent d'identifier les types de données qui sont les plus souvent confondus par le modèle.
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.7\textwidth]{confusion_matrix_by_classes.pdf} 
+        \caption{Matrice de confusion du modèle}
+        \label{fig:confusion_matrix_classes}
+    \end{figure}
+
+    Comme le montre \figref{fig:confusion_matrix_classes}, le modèle ateint une précision de $95,61\%$ sut la détection de contenus chiffrés et de $86,34\%$ pour les contenus non chiffrés. Cela indique que le modèle est plus performant pour identifier les données chiffrées, avec un faible taux de faux négatifs, de $4,39\%$. 
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=1\textwidth]{confusion_matrix_by_subclasses.pdf} 
+        \caption{Matrice de confusion du modèle, detaillé par type de données}
+        \label{fig:confusion_matrix_subclasses}
+    \end{figure}
+
+    Pour comprendre ces erreurs, nous avons décomposés les resultats sur chaque type de données, \figref{fig:confusion_matrix_subclasses}. On observe que les données compressées sont confondues avec des données chiffrées. En revanche, les données textuelles, les PDF et les images sont très bien différenciés du chiffrement, avec des taux de précision respectifs de proche de $100\%$.
+
     \subsection{Métriques d'évaluation}
     \begin{table}[H]
         \centering
@@ -331,43 +391,6 @@
     \end{table}
     \annot{Ajouter un explicatif sur les métriques}
 
-    \subsection{Le vote pondéré}
-    \begin{table}[H]
-        \centering
-        \begin{tabular}{|c|c|c|}
-            \cline{1-2}
-            \multicolumn{2}{|c|}{Accuracy} & \multicolumn{1}{c}{} \\
-            \hline
-            Sans vote pondéré & Avec vote pondéré & Diminution de l'erreur \\
-            \hhline{|=|=|=|}
-            87,59\% & 88,79\% & 9.67\% \\ \hline
-        \end{tabular}
-        \caption{Performances du vote pondéré}
-        \label{tab:performances_vote_pondere}
-    \end{table}
-
-    Comme on peut le lire que \tabref{tab:performances_vote_pondere}, le vote pondéré a permis d'améliorer l'accuracy de 1,2 points, soit une réduction de l'erreur de 9,67\%. Cette amélioration significative souligne l'efficacité de cette stratégie pour stabiliser les prédictions du modèle et réduire les artefacts de classification.
-
-    \subsection{Matrices de confusion}
-    Les performances du modèl ont été analysées plus finimùent avec des matrices de confusion, à la fois au niveau global (chiffré vs non chiffré) et au niveau des sous-classes (texte, PDF, image, données compressées, données chiffrées). Ces matrices permettent d'identifier les types de données qui sont les plus souvent confondus par le modèle.
-
-    \begin{figure}[H]
-        \centering
-        \includegraphics[width=0.7\textwidth]{confusion_matrix_by_classes.pdf} 
-        \caption{Matrice de confusion du modèle}
-        \label{fig:confusion_matrix_classes}
-    \end{figure}
-
-    Comme le montre \figref{fig:confusion_matrix_classes}, le modèle ateint une précision de 95,61\% sut la détection de contenus chiffrés et de 86,34\% pour les contenus non chiffrés. Cela indique que le modèle est plus performant pour identifier les données chiffrées, avec un faible taux de faux négatifs, de 4,39\%. 
-
-    \begin{figure}[H]
-        \centering
-        \includegraphics[width=1\textwidth]{confusion_matrix_by_subclasses.pdf} 
-        \caption{Matrice de confusion du modèle, detaillé par type de données}
-        \label{fig:confusion_matrix_subclasses}
-    \end{figure}
-
-    Pour comprendre ces erreurs, nous avons décomposés les resultats sur chaque type de données, \figref{fig:confusion_matrix_subclasses}. On observe que les données compressées sont confondues avec des données chiffrées. En revanche, les données textuelles, les PDF et les images sont très bien différenciés du chiffrement, avec des taux de précision respectifs de proche de 100\%.
 
     \chapter{Discussion}
     \annot{Pas touché}

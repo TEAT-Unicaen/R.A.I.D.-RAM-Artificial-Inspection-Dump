@@ -26,15 +26,17 @@ data/
 checkpoints/
 goldStandard/
 *.pth
+*.pt
 *.json
-
 
 #Latex files
 /rapport/**
 !/rapport/*.tex
 !/rapport/*.bib
-!/rapport/assets/**
 !/rapport/*.pdf
 !/rapport/*.sty
 !/rapport/*.sh
 !/rapport/*.bat
+
+!/rapport/assets/
+!/rapport/assets/**
