@@ -4,8 +4,10 @@ Petit guide rapide pour exécuter le projet (générer les données, entraîner 
 
 **Prérequis**
 - Python 3.10+
-- Pytorch
-- 
+- pytorch
+- tqdm
+- numpy
+- cryptography
 - GPU Nvidia recommandé pour l'entraînement et l'inférence (fortement conseillé).
 
 **Fichiers clés**
