@@ -87,8 +87,8 @@ def evaluate(generateExport=False, checkpoint_name=None):
     total, correct = 0, 0
     errorType = defaultdict(int)
 
-    # Global confidence-weighted vote buffers indexed by absolute byte offset.
-    # This keeps context stable even when windows cross batch boundaries.
+    # Global confidence-weighted vote buffers indexed by absolute byte offset
+    # This keeps context stable even when windows cross batch boundaries
     bin_size = int(meta_de_np[-1]) if len(meta_de_np) > 0 else 0
     vote_sum = np.zeros(bin_size, dtype=np.float32)
     vote_weight = np.zeros(bin_size, dtype=np.float32)
@@ -117,7 +117,7 @@ def evaluate(generateExport=False, checkpoint_name=None):
                 total += valid_labels.sum().item()
                 correct += ((predictions[valid_labels] == labels[valid_labels].float()).sum().item())
 
-            # Build absolute byte indices for each prediction in the batch.
+            # Build absolute byte indices for each prediction in the batch
             batch_offsets = start_offsets.cpu().numpy().astype(np.int64)
             batch_probs = probs.cpu().float().numpy().astype(np.float32)
             batch_labels = labels.cpu().float().numpy().astype(np.float32)
@@ -126,7 +126,7 @@ def evaluate(generateExport=False, checkpoint_name=None):
             local_positions = np.arange(sample_len, dtype=np.int64)
             abs_offsets = batch_offsets[:, None] + local_positions[None, :]
 
-            # Safety mask for the last, possibly incomplete, coverage area.
+            # Safety mask for the last, possibly incomplete, coverage area
             in_range = (abs_offsets >= 0) & (abs_offsets < bin_size)
             # Also mask out unlabeled positions (label == -1)
             valid_mask = batch_labels >= 0
@@ -134,7 +134,7 @@ def evaluate(generateExport=False, checkpoint_name=None):
             if not np.any(final_mask):
                 continue
 
-            # Aggregate votes and labels into global buffers using advanced indexing with np.add.at to handle duplicates.
+            # Aggregate votes and labels into global buffers using advanced indexing with np.add.at to handle duplicates
             flat_offsets = abs_offsets[final_mask]
             flat_probs = batch_probs[final_mask]
             flat_labels = batch_labels[final_mask]
@@ -145,8 +145,8 @@ def evaluate(generateExport=False, checkpoint_name=None):
             np.add.at(label_sum, flat_offsets, flat_labels)
             np.add.at(label_weight, flat_offsets, np.ones_like(flat_labels))
 
-    # Final per-byte aggregated prediction using confidence-weighted vote.
-    # Covered mask is representing the offsets that received at least one vote, allowing us to distinguish between "unknown" (no votes) and "clear/crypted" (with votes).
+    # Final per-byte aggregated prediction using confidence-weighted vote
+    # Covered mask is representing the offsets that received at least one vote, allowing us to distinguish between "unknown" (no votes) and "not encrypted/crypted" (with votes)
     covered_mask = vote_weight > 0
     agg_prob = np.zeros_like(vote_sum)
     agg_prob[covered_mask] = vote_sum[covered_mask] / vote_weight[covered_mask]
@@ -154,18 +154,17 @@ def evaluate(generateExport=False, checkpoint_name=None):
     agg_pred[covered_mask] = (agg_prob[covered_mask] > 0.5).astype(np.int8)
 
     # Aggregate labels using the weight accumulated during voting
-    # This allows us to compute an average label for each offset, which is then rounded to get the final aggregated label.
+    # This allows us to compute an average label for each offset, which is then rounded to get the final aggregated label
     covered_offsets = np.flatnonzero(covered_mask)
     label_covered = label_weight > 0
     agg_label = np.zeros_like(label_sum, dtype=np.int8)
     agg_label[label_covered] = np.round(label_sum[label_covered] / label_weight[label_covered]).astype(np.int8)
 
-    # Confidence of the aggregated prediction is derived from the average confidence of contributing predictions.
-    # We convert it to a [0, 1] range where 1 means "all votes agree and are confident" and 0 means "all votes are around the 0.5 threshold".
+    # We convert to a [0, 1] range where 1 means "all votes agree and are confident" and 0 means "all votes are around the 0.5 threshold"
     agg_conf = np.zeros_like(agg_prob)
     agg_conf[covered_mask] = np.abs(agg_prob[covered_mask] - 0.5) * 2.0
 
-    # If there are covered offsets, perform error analysis and prepare visualization segments.
+    # If there are covered offsets, perform error analysis and prepare visualization segments
     if np.any(covered_mask):
 
         pred_seq = agg_pred[covered_offsets]
@@ -197,7 +196,7 @@ def evaluate(generateExport=False, checkpoint_name=None):
             count=run_starts.shape[0],
         )
 
-        # Determine the real type for each run based on the run start byte offset.
+        # Determine the real type for each run based on the run start byte offset
         idxs = np.searchsorted(meta_starts_np, byte_offsets, side="right") - 1
         real_types = np.full(byte_offsets.shape, "unknown", dtype=object)
         valid_idx_mask = idxs >= 0

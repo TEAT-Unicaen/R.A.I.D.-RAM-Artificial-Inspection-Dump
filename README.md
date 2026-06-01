@@ -1,6 +1,6 @@
 # R.A.I.D — Guide d'exécution
 
-Petit guide rapide pour exécuter le projet (générer les données, entraîner et évaluer). Il se concentre uniquement sur les commandes et les chemins utiles.
+Guide pour exécuter le projet (générer les données, entraîner et évaluer). Il se concentre uniquement sur les commandes et les chemins utiles.
 
 **Prérequis**
 - Python 3.10+

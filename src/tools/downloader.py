@@ -2,7 +2,6 @@ import asyncio
 import aiohttp
 import os
 import random
-import time
 
 class AsyncGigaDownloader:
     def __init__(self, base_path="./data", target_mb_per_type=500):
@@ -70,7 +69,7 @@ class AsyncGigaDownloader:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
         
-        print(f"--- Démarrage Fibre (Cible: {self.target_bytes/(1024**2):.1f}MB par catégorie) ---")
+        print(f"--- Démarrage (Cible: {self.target_bytes/(1024**2):.1f}MO par catégorie) ---")
         
         async with aiohttp.ClientSession(headers=headers) as session:
             tasks = []

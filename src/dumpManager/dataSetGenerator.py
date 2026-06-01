@@ -122,7 +122,6 @@ class MemoryLayout:
             })
 
     def write(self, data: bytes, label: str, originFile: str, extra: dict = None) -> int:
-        #self._align()
         
         size = len(data)
         if self.offset + size <= len(self.ram):
@@ -214,14 +213,9 @@ class DumpGenerator:
 
     def run(self, files: list, noise: bool = False, noiseLevel: float = 0.5, fragmentation: bool = True, balanceMode: str = "size", weights: dict = None):
         self.rng.shuffle(files)
-
         labels_to_balance = ["BASE64", "BINARY_IMAGE", "BINARY_PDF", "BINARY_TEXT", "COMPRESSED", "DECODED", "ENCRYPTED"]
         
-        # targetBytesPerType = 0
-        # if balanceMode == "size":
-        #     targetBytesPerType = self.totalBytes // len(labels_to_balance)
         target = self._computeTargets(balanceMode, labels_to_balance, weights)
-        
         kernelCount = 0
         for file_path in files:
             if self.mem.offset >= self.totalBytes * 0.95: break 
