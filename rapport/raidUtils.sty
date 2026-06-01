@@ -81,13 +81,17 @@
     \newpage
 }
 
-\newcommand{\citefull}[1] {\hyperlink{#1}{\textit{\citetitle{#1}}}}
+\newcommand{\citefull}[1] {\hyperlink{#1}{\textcolor{Plum}{\textit{\citetitle{#1} (\citeyear{#1})}}}}
 
 \newcommand{\annot}[1] {\textcolor{Red}{[NEED TO CHANGE] : #1}}
 
 \newcommand{\customRef}[3] {{#1}~\hyperref[#3]{\textcolor{WildStrawberry}{#2~\ref*{#3}}}}
 
-\newcommand{\figref}[1] {\customRef{la}{Figure}{#1}}
+\newcommand{\chapref}[1] {\customRef{le}{Chapitre}{#1}}
 \newcommand{\secref}[1] {\customRef{la}{Section}{#1}}
+\newcommand{\subsecref}[1] {\customRef{la}{Sous-section}{#1}}
+\newcommand{\subsubsecref}[1] {\customRef{la}{Sous-sous-section}{#1}}
+
+\newcommand{\figref}[1] {\customRef{la}{Figure}{#1}}
 \newcommand{\tabref}[1] {\customRef{le}{Tableau}{#1}}
 \newcommand{\equref}[1] {\customRef{l'}{Équation}{#1}}

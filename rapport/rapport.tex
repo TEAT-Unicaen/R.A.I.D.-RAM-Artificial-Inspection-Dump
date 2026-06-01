@@ -43,24 +43,30 @@
     \tableofcontents
     \newpage
 
-    \chapter{Introduction}
-    \section{Contexte}
-    L'analyse forensique de la mémoire vive (RAM) constitue un pilier fondamental de l'informatique légale. Contrairement au stockage persistant, la RAM contient des artéfacts volatils critiques : clés de chiffrement, fragments de documents, ou résidus de textes souvent invisibilisés dans de grandes quantités de données déstructurées.
+    \chapter{Introduction}\label{chap:introduction}
+    \section{Contexte}\label{sec:contexte}
+    L'analyse forensique de la mémoire vive (RAM) constitue un pilier fondamental de l'informatique légale. Contrairement au stockage persistant, la RAM contient des artéfacts volatils critiques : clés de chiffrement, fragments de documents, ou résidus de textes souvent invisibilisés dans de grandes quantités de données déstructurées.\\
 
-    Jusqu'au années 2000, aucun outils n'étaient concu pour l'analyse, les experts se reposaient sur des méthodes ad hoc, et donc utilisaient des outils générique comme \texttt{strings} ou \texttt{grep} pour récuperer les chaines de caractères. Par la suite, pendant la premiere décennie du siècle, des outils comme \textit{Volatility} ou \textit{Rekall} ont émergé, offrant des capacités d'extraction plus avancées basées sur des signatures statiques.
+    Jusqu'au années 2000, aucun outils n'étaient concu pour l'analyse, les experts se reposaient sur des méthodes ad hoc, et donc utilisaient des outils générique comme \texttt{strings} ou \texttt{grep} pour récuperer les chaines de caractères. Par la suite, pendant la premiere décennie du siècle, des outils comme \textit{Volatility} ou \textit{Rekall} ont émergé, offrant des capacités d'extraction plus avancées basées sur des signatures statiques.\\
 
-    Cependant, l'extraction d'informations reste complexe. Bien que ces outils aient progressé, les méthodes traditionnelles reposent souvent sur des signatures statiques, qui sont à la fois rigides et vulnérables à l'obfuscation. De plus, la nature fragmentée des dumps mémoire rend difficile l'identification de structures de données critiques, sans compter la présence de données chiffrées ou compressées qui présentent une entropie élevée et peu de motifs exploitables.
+    Cependant, l'extraction d'informations reste complexe. Bien que ces outils aient progressé, les méthodes traditionnelles reposent souvent sur des signatures statiques, qui sont à la fois rigides et vulnérables à l'obfuscation. De plus, la nature fragmentée des dumps mémoire rend difficile l'identification de structures de données critiques, sans compter la présence de données chiffrées ou compressées qui présentent une entropie élevée et peu de motifs exploitables.\\
 
     Dans ce contexte, l'approche par apprentissage automatique, afin de trouver des règles sémentiques dans les flux binaires, offre une alternative prometteuse. Il y a quelque années, le travail de Thomas Gougeon \citefull{analyse_forensique_de_la_memoire_des_cartes_a_puce} ont démontré la capacité d'un modèle de langage à différencier les données chiffrées des données textuelles dans le contexte spécifique des cartes à puce. Cependant, le passage à l'échelle pour traiter des dumps mémoire complets, avec leur diversité de formats et de structures, reste un défi ouvert.
 
-    \section{Problématique}
-    \annot{Reformuler la problématique ?}
+    \section{Problématique}\label{sec:problematique}
+    L'analyse forensique de la mémoire vive s'est historiquement structurée autour de la recherche de signatures statiques et de structures rigides (comme les en-têtes de fichiers ou les structures de données des systèmes d'exploitation via des outils comme Volatility). Face à la fragmentation et à l'obfuscation, ces approches montrent leurs limites.\\
 
-    Comment segmenter de manière fiable et autonome un dump de RAM, en distinguant les données chiffrées, des données non chiffrées, y compris des données complexes telles que des PDF ou des données compressées\,~?
+    Pour dépasser ce paradigme rigide, des travaux antérieurs ont exploré l'apport de l'apprentissage automatique. C'est le cas notamment de la thèse de Thomas Gougeon, \citefull{analyse_forensique_de_la_memoire_des_cartes_a_puce}. Il a démontré la viabilité de modèles pour différencier des données chiffrées de données textuelles. Cependant, son approche repose sur une analyse qui s'apparente à une approche par signatures statistiques de haut niveau, car elle s'appuie sur l'extraction de features calculées sur des blocs de données (comme le calcul explicite de l'entropie ou de fréquences de caractères). De plus, ces travaux se limitent à des environnements contraints comme les cartes à puce et ne se confrontent pas au passage à l'échelle qu'imposent des dumps mémoire complets et hétérogènes, ceux-ci mélangeant encodages, compressions multiples et données bruitées.\\
+    
+    Le projet R.A.I.D. propose de passer d'une analyse par signatures ou caractéristiques précalculées à une analyse profonde basée sur des motifs que l'humain pourrait peiner à pointer du doigt. En exploitant une architecture Transformer, le modèle n'a plus besoin qu'on lui définisse ce qu'est l'entropie : il doit apprendre de manière autonome la topologie et les dépendances contextuelles complexes au sein d'une séquence binaire brute, simulant une véritable compréhension "syntaxique" du binaire.
+    Néanmoins, en l'absence d'une comparaison expérimentale directe et exhaustive avec l'ensemble des méthodes traditionnelles ou les travaux précédents de Thomas Gougeon (faute de benchmarks standardisés disponibles), une question fondamentale se pose. La problématique de ce travail s'articule donc ainsi :\\
 
-    La complexité de la tâche réside dans la similitude mathématique entre les données chiffrées et compressées, toutes deux à haute entropie. De plus, la fragmentation, se qui créer une discontinuité des les données, rend l'identification de structures de données plus conventionnelles (textes, images) plus difficile.
+    \textbf{Dans quelle mesure une architecture d'apprentissage profond de type Transformer, exploitant uniquement les relations contextuelles locales et globales d'une séquence binaire brute, permet-elle de segmenter efficacement un dump de RAM hétérogène, et ce, même en l'absence de descripteurs statistiques explicites ou de signatures traditionnelles ?}\\
 
-    \section{Objectifs}
+    Autrement dit, il s'agit de déterminer si les méthodes d'apprentissage profond sont capables de capturer intrinsèquement la sémantique des données pour surmonter un point de difficulté de l'analyse forensique, notamment la distinction entre haute entropie "utile" (compression) et haute entropie "intentionnelle" (chiffrement).
+
+
+    \section{Objectifs}\label{sec:objectifs}
     Le projet R.A.I.D. (RAM Artificial Inspection Dump) s'inscrit dans cette dynamique en proposant une approche basée sur l'apprentissage profond. L'objectif central est de développer un système capable de classifier les octets d'un dump de RAM pour déterminer leur nature : chiffrée ou non, et ce de manière autonome.
 
     L'implémentation repose sur l'utilisation de l'architecture \textit{Transformer} et en particulier l'encodeur ainsi que son mécanisme de \textit{self-attention} associé.
@@ -69,11 +75,9 @@
 
     Cette différenciation doit permettre à terme de segmenter précisément la mémoire et d'identifier les différents champs de données sans supervision humaine.
 
-
-
-    \chapter{Méthodologie}
-    \section{Générateur de datasets synthétiques}
-    \subsection{Collecte de données}
+    \chapter{Méthodologie}\label{chap:methodologie}
+    \section{Générateur de datasets synthétiques}\label{sec:generateur_datasets}
+    \subsection{Collecte de données}\label{subsec:collecte_donnees}
     Pour constituer notre corpus initial, nous avons agrégé des données issues de trois sources principales :
 
     \begin{itemize}
@@ -85,8 +89,7 @@
 
     Le \textit{projet Gutenberg} est une bibliothèque numérique de plus de $60~000$ livres du domaine public, offrant une grande diversité de textes littéraires. \textit{ArXiv}, quant à lui, fournit un accès à des milliers de documents scientifiques au format PDF. Et enfin, \textit{Lorem Picsum} propose une vaste collection d'images. Les trois services offrent des API permettant de récupérer facilement des données de manière automatisée, ce qui a permis de constituer un corpus initial.
 
-    \subsection{Transformation des données}
-    
+    \subsection{Transformation des données}\label{subsec:transformation_donnees}
     Afin de transformer cet échantillon en un jeu de données réaliste et exploitable, ces fichiers bruts sont soumis à un pipeline de transformations reproduisant la diversité des données en mémoire. 
 
     \begin{figure}[H]
@@ -96,29 +99,32 @@
         \label{fig:tree}
     \end{figure}
 
-    Nos trois types de données principaux (Texte, PDF, Images) sont soumis à des transformations detaillées dans \figref{fig:tree}, telles que l'encodage via le \texttt{Base64}, la compression a taux variable via \texttt{zLib} ou \texttt{Gzip}, ou encore le chiffrement via l'algorithme \texttt{AES-256-CBC}.Et la convertion en matrice de pixels RGB pour les images. On crée aussi du bruit aléatoire. Toutes ces transformations sont appliquées avec une seed afin de garantir la reproductibilité du processus tant que les données sources restent inchangées.
+    Nos trois types de données principaux (Texte, PDF, Images) sont soumis à des transformations detaillées dans \figref{fig:tree}, telles que l'encodage via le \texttt{Base64}, la compression a taux variable via \texttt{zLib} ou \texttt{Gzip}, ou encore le chiffrement via l'algorithme \texttt{AES-256-CBC}.Et la convertion en matrice de pixels RGB pour les images. On crée aussi du bruit aléatoire. Toutes ces transformations sont appliquées avec une seed afin de garantir la reproductibilité du processus tant que les données sources restent inchangées.\\
 
-    Avec toutes ces transformations, nous obtenons une grande variété de sous-classes de données, que nous etiquetons en fonction de leur nature, \underline{chiffré} ou \underline{non chiffré}. Cette diversité est essentielle pour entraîner un modèle capable de généraliser à des données réelles, qui peuvent être fragmentées, obfusquées ou structurées de manière inattendue.
+    Avec toutes ces transformations, nous obtenons une grande variété de sous-classes de données, que nous etiquetons en fonction de leur nature, \underline{chiffré} ou \underline{non chiffré}. Cette diversité est essentielle pour entraîner un modèle capable de généraliser à des données réelles, qui peuvent être fragmentées, obfusquées ou structurées de manière inattendue.Nos deux classes sont donc réparties  comme montré dans \tabref{tab:classes}.
 
-    Nos deux classes sont donc :
-    \begin{itemize}
-        \item \underline{Non Chiffré}
-        \begin{itemize}
-            \item Texte brut
-            \item PDF
-            \item Image brute, en PNG
-            \item Image convertie en matrice de pixels RGB
-            \item Données compressées via algorithme
-            \item Données encodées via \texttt{Base64}
-            \item Données bruitées
-        \end{itemize}
-        \item \underline{Chiffré}
-        \begin{itemize}
-            \item Les données chiffrées via algorithme
-        \end{itemize}
-    \end{itemize}
+    \begin{table}[H]
+        \centering
+        \begin{tabular}{|c|c|}
+            \hline
+            Non chiffrée (0) & Chiffrée (1) \\
+            \hhline{|=|=|}
+            Texte brut &  \\
+            PDF &  \\
+            Image brute (PNG) &  \\
+            Image convertie en matrice de pixels RGB & Données chiffrées \\
+            Données compressées via algorithme &  \\
+            Données encodées via \texttt{Base64} &  \\
+            Données bruitées &  \\
+            \hline
+        \end{tabular}
+        \caption{Répartition des classes dans le dump mémoire synthétique}
+        \label{tab:classes}
+    \end{table}
 
-    \subsection{Création du segment RAM synthétique}
+
+
+    \subsection{Création du segment RAM synthétique}\label{subsec:creation_segment_ram}
     Tout le processus de création du "dump" est reproductible grâce à l'utilisation d'une seed, garantissant que les mêmes données sources génèrent le même dump synthétique à chaque exécution du pipeline. La répartation des différents classes est équilibrée, avec $50\%$ de données chiffrées et $50\%$ de données non chiffrées, afin d'éviter tout biais lors de l'entraînement du modèle. Et chaque type des données non chiffrées est également représenté de manière équilibrée pour garantir une diversité suffisante au sein de cette classe, illustré dans \figref{fig:repartRAM}.
     \begin{figure}[H]
         \centering
@@ -136,19 +142,19 @@
         \label{fig:dump}
     \end{figure}
 
-    \subsection{Construction des différents "dumps"}
+    \subsection{Construction des différents "dumps"}\label{subsec:construction_dumps}
     Avec ce pipeline de génération de données, nous avons construit deux dumps synthétiques de 1,2~Go et 500~Mo, dédiés respectivement à l'entraînement et au test du modèle. Ces dumps sont équilibrés, avec la répartition de \figref{fig:repartRAM}. Pour le dump d'entraînement, $20\%$ des données sont réservées à la validation, afin de suivre l'évolution de la performance du modèle et d'éviter le surapprentissage. Le dump de test, quant à lui, est utilisé pour évaluer la capacité du modèle à généraliser à des données qu'il n'a jamais vues auparavant.
 
-    \section{Le découpage en chunks}
-    Pour permettre au modèle de traiter efficacement les données, le dump est découpé en segments contigus de taille fixe, appelés "chunks". Chaque chunk contient \chunkSize octets, ce qui correspond à la taille maximale que le modèle peut traiter en une seule passe. Ce découpage permet de structurer les données de manière à ce que le modèle puisse apprendre à identifier des motifs locaux au sein de chaque segment. Cependant, ce découpage en chunks introduit une discontinuité artificielle dans les données, car les frontières entre les chunks peuvent couper des structures de données ou des motifs importants. Pour compenser cette limitation, nous avons implémenté une stratégie de "overlapping" (recouvrement) lors de l'inférence, qui sera détaillée dans \secref{sec:overlapping}.
+    \section{Le découpage en chunks}\label{sec:decoupage_chunks}
+    Pour permettre au modèle de traiter efficacement les données, le dump est découpé en segments contigus de taille fixe, appelés "chunks". Chaque chunk contient \chunkSize octets, ce qui correspond à la taille maximale que le modèle peut traiter en une seule passe. Ce découpage permet de structurer les données de manière à ce que le modèle puisse apprendre à identifier des motifs locaux au sein de chaque segment. Cependant, ce découpage en chunks introduit une discontinuité artificielle dans les données, car les frontières entre les chunks peuvent couper des structures de données ou des motifs importants. Pour compenser cette limitation, nous avons implémenté une stratégie de "overlapping" (recouvrement) lors de l'inférence, qui sera détaillée dans \subsecref{subsec:overlapping}.
 
-    \section{Modèle de classification}
-    \subsection{Introduction au principe du \textit{Transformer}}
+    \section{Modèle de classification}\label{sec:modele_classification}
+    \subsection{Introduction au principe du \textit{Transformer}}\label{subsec:introduction_transformer}
     L'architecture \textit{Transformer} représente un changement de paradigme majeur dans le domaine de l'apprentissage profond (Deep Learning). Introduit par \textit{Google} en 2017 à travers l'article \citefull{attention_is_all_you_need}, ce modèle s'est imposé comme le standard pour le traitement de données séquentielles, notamment dans le traitement automatique des langues (NLP).
 
     Contrairement aux architectures récurrentes conventionnelles (RNN et LSTM), qui opèrent par une analyse chronologique et itérative de l'information, le \textit{Transformer} repose sur un principe de parallélisation massive des flux de données. Ce qui permet de traiter des séquences entières simultanément, sans dépendre de l'ordre d'entrée. Le cœur de cette architecture réside dans le mécanisme d'attention, qui permet au modèle de pondérer l'importance relative de chaque élément d'une séquence par rapport à tous les autres, facilitant ainsi la capture de dépendances à longue distance.
 
-    \subsubsection{Architecture Encodeur}
+    \subsubsection{Architecture Encodeur}\label{subsubsec:architecture_encodeur}
     Un encodeur traite et modélise l'information d'entrée en convertissant des données brutes en représentations vectorielles de haute dimension. Lorsqu'il est utilisé indépendamment d'un décodeur, ce module est particulièrement efficace pour les tâches de classification ou de compréhension sémantique, où la génération de texte n'est pas requise.
     \begin{figure}[H]
         \centering
@@ -157,7 +163,7 @@
         \label{fig:encodeur}
     \end{figure}
 
-    \subsubsection{Input Embedding}
+    \subsubsection{Input Embedding}\label{subsubsec:input_embedding}
     \textit{L'input embedding} transforme les données brutes en représentations vectorielles de dimension $d_{model}$, rendant l'information traitable mathématiquement par le modèle.
 
     Une fois projetés dans l'espace vectoriel, ces vecteurs sont multipliés par un facteur d'échelle $\sqrt{d_{model}}$ afin de stabiliser les gradients lors de l'entraînement.
@@ -170,7 +176,7 @@
         PE_{(pos, 2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{model}}}\right) \label{eq:positional_encoding_cos}
     \end{gather}
 
-    \subsubsection{Mécanisme d'attention}
+    \subsubsection{Mécanisme d'attention}\label{subsubsec:mecanisme_attention}
     Le mécanisme de \textit{self-attention} permet au modèle de pondérer l'importance relative de chaque élément d'une séquence par rapport à tous les autres au sein de la même entrée. En projetant chaque token dans trois espaces distincts(Q, K, V), le modèle calcule une distribution de scores par produit scalaire. Cette opération permet d'extraire les dépendances contextuelles, qu'elles soient locales ou à longue distance, en focalisant le traitement sur les parties les plus informatives de la séquence.
 
     \begin{gather}
@@ -183,13 +189,13 @@
 
     L'attention multi-têtes, c'est l'application de plusieurs mécanismes de \textit{self-attention} en parallèle, dans le but de spécifier et d'extraire plusieurs métriques (types, syntaxe …) afin de ne pas écarter de sens exploitable. Leurs résultats sont donc fusionnés pour extraire un unique vecteur portant toutes les informations sur le sens.
 
-    \subsubsection{Sortie du modèle}
+    \subsubsection{Sortie du modèle}\label{subsubsec:sortie_modele}
     A la sortie du modèle on trouve des logits (score une valeur entre $-\infty$ et $+\infty$), nous y appliquons une fonction sigmoïde pour \textit{Transformer} entre 0 et 1, entre les deux classes.
     \begin{equation}
         \sigma(x) = \frac{1}{1 + e^{-x}} \label{eq:sigmoid}
     \end{equation}
 
-    \section{\texttt{BytesTransformerClassifier}}
+    \section{\texttt{BytesTransformerClassifier}}\label{sec:bytes_transformer_classifier}
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.6\textwidth]{transformerPipeline.pdf} 
@@ -209,7 +215,7 @@
             \hline
             kernel\_size & $3$ \\
             \hline
-            num\_heads & $8$ \\
+            num\_heads & $4$ \\
             \hline
             num\_layers & $4$ \\
             \hline
@@ -224,7 +230,7 @@
 
     Nous avons opté pour une architecture hybride combinant une couche de Convolution unidimensionnelle (\textit{Local Convolution} dans \figref{fig:transformer_pipeline}) en amont du bloc d'encodeur. Cette configuration permet d'extraire des motifs locaux au sein des séquences d'octets, tout en bénéficiant de la capacité du \textit{Transformer} à modéliser les dépendances à longue distance.
 
-    \section{Entraînement et validation}
+    \section{Entraînement et validation}\label{sec:entrainement_validation}
     \begin{figure}[H]
         \centering
         \includegraphics[width=1\textwidth]{trainningPipeline.pdf} 
@@ -232,22 +238,23 @@
         \label{fig:training_pipeline}
     \end{figure}
 
-    Le "dump" est divisé en deux parties avec un \texttt{random\_split}. 80\% des données sont utilisées pour l'entraînement, tandis que les 20\% restants sont réservés à la validation. Le split est reproductible grâce à l'utilisation d'une seed fixe.
+    Le "dump" est divisé en deux parties avec un \texttt{random\_split}. 80\% des données sont utilisées pour l'entraînement, tandis que les 20\% restants sont réservés à la validation. Le split est reproductible grâce à l'utilisation d'une seed fixe.\\
 
-    Ensuite, nous calculons la loss principale avec \texttt{BCEWithLogitsLoss}, qui combine une fonction de perte binaire avec une activation sigmoïde intégrée. Nous avons aussi ajouté une TV loss (Total Variation Loss) pour encourager la cohérence spatiale des prédictions, en pénalisant les changements de classe abrupts entre octets adjacents. La loss totale est une combinaison pondérée de ces deux composantes, avec un coefficient $\lambda$, ici de $0.1$, ajusté pour équilibrer leur influence.
+    Ensuite, nous calculons la loss principale avec \texttt{BCEWithLogitsLoss}, qui combine une fonction de perte binaire avec une activation sigmoïde intégrée. Nous avons aussi ajouté une TV loss (Total Variation Loss) pour encourager la cohérence spatiale des prédictions, en pénalisant les changements de classe abrupts entre octets adjacents. La loss totale est une combinaison pondérée de ces deux composantes, avec un coefficient $\lambda$, ici de $0.1$, ajusté pour équilibrer leur influence.\\
 
-    Nous utilisons l'optimiseur AdamW, qui est une variante de l'Adam classique, intégrant une régularisation par poids (weight decay) pour améliorer la généralisation du modèle. Le taux d'apprentissage initial est fixé à $1e-4$. Nous utilisons aussi un scheduler de type \texttt{CosineAnnealingLR} pour ajuster dynamiquement le taux d'apprentissage au cours de l'entraînement, permettant ainsi une convergence plus efficace. Le sheduler plateau était moins efficace. Le warmup linéaire peut être chaîné avant le scheduler principal (sauf avec Plateau) via SequentialLR.
+    Nous utilisons l'optimiseur AdamW, qui est une variante de l'Adam classique, intégrant une régularisation par poids (weight decay) pour améliorer la généralisation du modèle. Le taux d'apprentissage initial est fixé à $1e^{-4}$. Nous utilisons aussi un scheduler de type \texttt{CosineAnnealingLR} pour ajuster dynamiquement le taux d'apprentissage au cours de l'entraînement, permettant ainsi une convergence plus efficace. Le sheduler plateau était moins efficace. Le warmup linéaire peut être chaîné avant le scheduler principal (sauf avec Plateau) via SequentialLR. A la fin de chaque epoch, on save le modèle dans un chekpoint.\\
 
-    A la fin de chaque epoch, on save le modele dans un chekpoint
+    Pour choisir le meilleur modèle, nous suivons la métrique d'accuracy et le losssur l'ensemble de validation. Le modèle avec la meilleure accuracy et la meilleure loss est sélectionné pour l'inférence finale sur le dump de test.\\
 
-    Pour choisir le meilleur modèle, nous suivons la métrique d'accuracy et le losssur l'ensemble de validation. Le modèle avec la meilleure accuracy et la meilleure loss est sélectionné pour l'inférence finale sur le dump de test.
+    Un des problèmes que nous avons rencontré est la confusion entre les données chiffrées et les données compressées, nous avons procédé à une phase de fine-tuning spécifiquement ciblé pour ce problème. En réentraînant nôtre meilleur modèle sur trois époques strictement équilibrées (répartition 50/50 entre le chiffré et le compressé) nous avons fortement amélioré ses capacités de discernement. Les résultats sont présentés dans \subsecref{subsec:performances_fine_tuning}.
 
-    \section{Inference}
-    \subsection{Processus d'inférence}
+
+    \section{Inference}\label{sec:inference}
+    \subsection{Processus d'inférence}\label{subsec:processus_inference}
     Avec le meilleur modèle sélectionné, nous procédons à l'inférence sur le dump de test.
     Lors de l'inférence, le dump de RAM est traité par segments de \chunkSize{} octets, conformément à la taille d'entrée du modèle. Chaque segment est passé à travers le classifieur, qui génère une prédiction binaire pour chaque octet, indiquant s'il est chiffré ou non.
 
-    \subsection{Principe de \textit{l'overlapping} (recouvrement)} \label{sec:overlapping}
+    \subsection{Principe de \textit{l'overlapping} (recouvrement)} \label{subsec:overlapping}
     Le modèle traite le dump mémoire par fenêtres glissantes de \texttt{N} octets. Au lieu de découper la mémoire en blocs contigus, nous utilisons un pas de glissement (stride) inférieur à la taille de la fenêtre. Par conséquent, chaque octet de la RAM est analysé plusieurs fois par le Transformer, au sein de contextes différents.
     \begin{figure}[H]
         \centering
@@ -263,7 +270,7 @@
         \text{\small avec } n = \frac{\text{chunk\_size}}{\text{stride}} \nonumber
     \end{gather}
 
-    \section{Optimisation}
+    \section{Optimisation}\label{sec:optimisation}
     Afin d'aller plus loin sur le projet, nous avons eu besoin de monter significativement nos volumes de données synthétiques pour le train ainsi que le nombre d'époques. Nous avons donc dû trouver des optimisations afin d'exploiter le plus possible nôtre matériel.
 
     \begin{figure}[H]
@@ -282,11 +289,11 @@
         \label{fig:nsight_after}
     \end{figure}
 
-    Dans un second temps, nous avons maximisé la vitesse d'entraînement. Nous avons adopté la précision mixte, \textit{bfloat16}, permettant de réduire la consommation de VRAM par deux et d'accélérer le temps d'entraînement par deux. De plus, nous avons activé torch.compile avec le backend Inductor en mode max-autotune. Contrairement à une approche standard, ce mode réalise un benchmark exhaustif sur notre architecture, une \textit{RTX 5080} : le compilateur génère et exécute physiquement des variantes de noyaux Triton pour chaque segment du graphe de calcul. Cette recherche identifie la stratégie de fusion de noyaux offrant la latence la plus faible. Bien que cette phase d'autotuning ajoute environ $400$ secondes au lancement, elle génère un gain de performance de $27,45\%$ par époque, elle est donc intéressante sur l'entraînement mais également sur des inférences qui seraient longues.
+    Dans un second temps, nous avons maximisé la vitesse d'entraînement. Nous avons adopté la précision mixte, \textit{bfloat16}, permettant de réduire la consommation de VRAM par deux et d'accélérer le temps d'entraînement par deux. De plus, nous avons activé torch.compile avec le backend Inductor en mode max-autotune. Contrairement à une approche standard, ce mode réalise un benchmark exhaustif sur notre architecture, une \textit{RTX 5080} : le compilateur génère et exécute physiquement des variantes de noyaux Triton pour chaque segment du graphe de calcul. Cette recherche identifie la stratégie de fusion de noyaux offrant la latence la plus faible. Bien que cette phase d'autotuning ajoute environ $400$ secondes au lancement, elle génère un gain de performance de $27,45\%$ par époque, elle est donc intéressante sur l'entraînement mais également sur des inférences qui seraient longues.\\
 
     Enfin, la Total Variation Loss a été réimplémentée sous forme de convolution 1D. Cette approche exploite pleinement la parallélisation massive des cœurs CUDA, rendant ce calcul quasi instantané par rapport à une approche itérative classique sur CPU.
 
-    \section{Outils d'analyse}
+    \section{Outils d'analyse}\label{sec:outils_analyse}
     Pour analyser les résultats nous avons développé un visualiseur de données, qui permet de superposer les classifications du modèle à la vérité. Il s'agit d'une interface graphique web développée en \textit{React} avec un \texttt{<canvas>}.
     \begin{figure}[H]
         \centering
@@ -316,10 +323,10 @@
         \label{fig:viewer_detail}
     \end{figure}
 
-    C'est l'exploitation de cet outil qui nous a permis d'observer visuellement que les erreurs se concentraient principalement aux frontières des segments, lors des transitions entre deux types de données. Cette découverte a directement motivé l'implémentation du mécanisme de vote pondéré détaillé précédemment.
+    C'est l'exploitation de cet outil qui nous a permis d'observer visuellement que les erreurs se concentraient principalement aux frontières des segments, lors des transitions entre deux types de données. Cette découverte a directement motivé l'implémentation du mécanisme de vote pondéré détaillé dans \subsecref{subsec:overlapping}.
 
-    \chapter{Résultats}
-    \section{Le vote pondéré}
+    \chapter{Résultats}\label{chap:resultats}
+    \section{Le vote pondéré}\label{sec:resultats_vote_pondere}
     \begin{table}[H]
         \centering
         \begin{tabular}{|c|c|c|}
@@ -328,158 +335,158 @@
             \hline
             Sans vote pondéré & Avec vote pondéré & Diminution de l'erreur \\
             \hhline{|=|=|=|}
-            87,59\% & 88,79\% & 9.67\% \\ \hline
+            $92.77\%$ & $94.79\%$ & $27.94\%$ \\ \hline
         \end{tabular}
         \caption{Performances du vote pondéré}
         \label{tab:performances_vote_pondere}
     \end{table}
 
-    Comme on peut le lire que \tabref{tab:performances_vote_pondere}, le vote pondéré a permis d'améliorer l'accuracy de 1,2 points, soit une réduction de l'erreur de 9,67\%. Cette amélioration significative souligne l'efficacité de cette stratégie pour stabiliser les prédictions du modèle et réduire les artefacts de classification.
+    Comme on peut le lire que \tabref{tab:performances_vote_pondere}, le vote pondéré a permis d'améliorer l'accuracy de $2,02$ points, soit une réduction de l'erreur de $27.94\%$. Cette amélioration significative souligne l'efficacité de cette stratégie pour stabiliser les prédictions du modèle et réduire les artefacts de classification.
 
-    \section{Comparaison des configurations du modèle}
+    \section{Comparaison des configurations du modèle}\label{sec:comparaison_configurations}
     \begin{figure}[H]
         \centering
-        \includegraphics[width=0.75\textwidth]{comparaison_performances.pdf} 
+        \includegraphics[width=1\textwidth]{comparaison_performances.pdf} 
         \caption{Courbes d'apprentissage du modèle {\small (axes des abscisses en échelle logarithmique)}}
         \label{fig:comparaison_performances}
     \end{figure}
-    
-    Les resultats ci-dessus, \figref{fig:comparaison_performances}, sont obtenu sur des petits jeux de données, 50~Mo, afin de montrer une tendance de l'utilisation ou non du \textit{TV Loss} ou de la convalution. La configuration avec \textit{TVLoss} et Convolution (courbe bleu foncé) se distingue comme étant la plus performante sur l'ensemble de la période d'entraînement. En observant l'évolution de l'exactitude de validation, cette configuration atteint les niveaux les plus élevés, culminant au-delà de $90\%$ d'exactitude vers la fin des $20$ époques. Parallèlement, elle démontre une stabilité remarquable dans la réduction de la perte de validation, se maintenant aux alentours de $0.30$ après une phase de stabilisation initiale. À l'inverse, les configurations dépourvues de convolution présentent une plus grande instabilité, avec des fluctuations marquées de la perte et une progression plus lente de l'exactitude, soulignant l'apport crucial de l'architecture convolutive pour la convergence du modèle.
+
+    Les resultats ci-dessus, \figref{fig:comparaison_performances}, sont obtenu sur des petits jeux de données, 50~Mo, afin de montrer une tendance de l'utilisation ou non du \textit{TV Loss} ou de la convalution. La configuration avec \textit{TVLoss} et Convolution (courbe bleu foncé) se distingue comme étant la plus performante sur l'ensemble de la période d'entraînement. En observant l'évolution de l'exactitude de validation, cette configuration atteint les niveaux les plus élevés, culminant au-delà de $90\%$ d'exactitude vers la fin des $20$ époques. Parallèlement, elle démontre une stabilité remarquable dans la réduction de la perte de validation, se maintenant aux alentours de $0.30$ après une phase de stabilisation initiale. À l'inverse, les configurations dépourvues de convolution présentent une plus grande instabilité, avec des fluctuations marquées de la perte et une progression plus lente de l'exactitude, soulignant l'apport crucial de l'architecture convolutive pour la convergence du modèle.\\
 
     Ici on aurais donc choisi le modèle, avec \textit{TVLoss} et Convolution, à l'époque 15, qui présente un bon compromis entre l'exactitude et la perte.
 
-    \section{Performance Globales}
-    \subsection{Matrices de confusion}
-    Les performances du modèl ont été analysées plus finimùent avec des matrices de confusion, à la fois au niveau global (chiffré vs non chiffré) et au niveau des sous-classes (texte, PDF, image, données compressées, données chiffrées). Ces matrices permettent d'identifier les types de données qui sont les plus souvent confondus par le modèle.
+    \section{Performance Globales}\label{sec:performance_globales}
 
+    \subsection{Les performances du modèle avant fine tunning}\label{subsec:performances_modele}
+
+    \subsubsection{Matrices de confusion}\label{subsubsec:matrices_confusion}
     \begin{figure}[H]
         \centering
-        \includegraphics[width=0.7\textwidth]{confusion_matrix_by_classes.pdf} 
+        \includegraphics[width=0.7\textwidth]{confusion_matrix_by_classes_og.pdf} 
         \caption{Matrice de confusion du modèle}
         \label{fig:confusion_matrix_classes}
     \end{figure}
 
-    Comme le montre \figref{fig:confusion_matrix_classes}, le modèle ateint une précision de $95,61\%$ sut la détection de contenus chiffrés et de $86,34\%$ pour les contenus non chiffrés. Cela indique que le modèle est plus performant pour identifier les données chiffrées, avec un faible taux de faux négatifs, de $4,39\%$. 
+    Comme le montre \figref{fig:confusion_matrix_classes}, le modèle ateint une précision de $99.79\%$ sur la détection de contenus chiffrés et de $94.13\%$ pour les contenus non chiffrés. Cela indique que le modèle est plus performant pour identifier les données chiffrées, avec un faible taux de faux négatifs, de $0.21\%$.
 
     \begin{figure}[H]
         \centering
-        \includegraphics[width=1\textwidth]{confusion_matrix_by_subclasses.pdf} 
+        \includegraphics[width=1\textwidth]{confusion_matrix_by_subclasses_og.pdf} 
         \caption{Matrice de confusion du modèle, detaillé par type de données}
         \label{fig:confusion_matrix_subclasses}
     \end{figure}
 
-    Pour comprendre ces erreurs, nous avons décomposés les resultats sur chaque type de données, \figref{fig:confusion_matrix_subclasses}. On observe que les données compressées sont confondues avec des données chiffrées. En revanche, les données textuelles, les PDF et les images sont très bien différenciés du chiffrement, avec des taux de précision respectifs de proche de $100\%$.
+    Pour comprendre ces erreurs, nous avons décomposés les resultats sur chaque type de données, \figref{fig:confusion_matrix_subclasses}. On observe que les données compressées sont confondues avec les données chiffrées dans $32.24\%$ des cas, ce qui explique la majorité des erreurs de classification. En effet, les données compressées et chiffrées partagent des caractéristiques similaires, notamment une entropie élevée et une absence de motifs prévisibles, ce qui rend leur différenciation particulièrement difficile pour le modèle. C'est pourquoi nous avons décidé de procéder à une phase de fine-tuning ciblée pour améliorer la capacité du modèle à distinguer ces deux classes, comme détaillé dans \subsecref{subsec:performances_fine_tuning}.
 
-    \subsection{Métriques d'évaluation}
+    \subsubsection{Métriques d'évaluation}\label{subsubsec:metriques_evaluation}
     \begin{table}[H]
         \centering
-        \begin{tabular}{|c|c|}
+        \begin{tabular}{|c|c|c|}
+            \cline{2-3}
+            \multicolumn{1}{c}{} & \multicolumn{2}{|c|}{Score} \\
             \hline
-            Métrique finale & Score \\
-            \hhline{|=|=|}
-            Accuracy & $88,79\%$ \\
+            Métrique finale & sur le chiffré (0) & sur les non chiffrés (1) \\
+            \hhline{|=|=|=|}
             \hline
-            Precision & $\approx86\%$ \\
+            Precision & $99.78\%$ & $94.44\%$ \\
             \hline
-            Recall & $85,21\%$ \\
+            Recall & $94.13\%$ & $99.79\%$ \\
             \hline
-            F1-Score & $85,60\%$ \\
+            F1-Score & $96.87\%$ & $97.05\%$ \\
             \hline
         \end{tabular}
         \caption{Performances globales du classifieur RAID}
         \label{tab:performances_globales}
     \end{table}
-    \annot{Ajouter un explicatif sur les métriques}
+    \annot{A explicité}
 
+    \subsection{Performances du modèle après fine-tuning}\label{subsec:performances_fine_tuning}
+    \subsubsection{Matrices de confusion}\label{subsubsec:matrices_confusion_fine_tuning}
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.7\textwidth]{confusion_matrix_by_classes_fine_tunned.pdf} 
+        \caption{Matrice de confusion du modèle}
+        \label{fig:confusion_matrix_classes_fine_tunned}
+    \end{figure}
 
-    \chapter{Discussion}
-    \annot{Pas touché}
-    \section{Performance du vote pondéré}
-    L'un des défis majeurs de l'analyse de dumps mémoire par un \textit{Transformer} réside dans la volatilité des prédictions locales. Un segment de données peut présenter des caractéristiques ambiguës (par exemple, un en-tête de fichier compressé ressemblant à du texte structuré) qui induisent le modèle en erreur s'il est analysé de manière isolée. 
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=1\textwidth]{confusion_matrix_by_subclasses_fine_tunned.pdf} 
+        \caption{Matrice de confusion du modèle, detaillé par type de données}
+        \label{fig:confusion_matrix_subclasses_fine_tunned}
+    \end{figure}
 
-    Pour pallier cette limite, nous avons implémenté un mécanisme de vote pondéré. Cette approche permet de stabiliser les prédictions et d'augmenter la fiabilité de la classification des zones de mémoire.
+    \subsubsection{Métriques d'évaluation}\label{subsubsec:metriques_evaluation_fine_tuning}
+        \begin{table}[H]
+        \centering
+        \begin{tabular}{|c|c|c|}
+            \cline{2-3}
+            \multicolumn{1}{c}{} & \multicolumn{2}{|c|}{Score} \\
+            \hline
+            Métrique finale & sur le chiffré (0) & sur les non chiffrés (1) \\
+            \hhline{|=|=|=|}
+            \hline
+            Precision & $97.06\%$ & $96.94\%$ \\
+            \hline
+            Recall & $96.93\%$ & $97.07\%$ \\
+            \hline
+            F1-Score & $97.00\%$ & $97.00\%$ \\
+            \hline
+        \end{tabular}
+        \caption{Performances globales du classifieur RAID}
+        \label{tab:performances_globales}
+    \end{table}
+    \annot{A explicité}
 
-	En confrontant plusieurs prédictions pour un même octet via des fenêtres glissantes, nous avons observé une réduction des “artefacts de prédiction" (changements de classe abrupts et incohérents sur quelques octets). Cette approche agit comme un filtre passe-bas, éliminant le bruit haute fréquence dans les résultats pour ne conserver que les zones où le modèle maintient une confiance élevée et constante.  
+    \chapter{Discussion}\label{chap:discussion}
+    L'un des défis majeurs de l'analyse de dumps mémoire par un Transformer réside dans la volatilité des prédictions locales. Un segment de données peut présenter des caractéristiques ambiguës (par exemple, un en-tête de fichier compressé ressemblant à du texte structuré) qui induisent le modèle en erreur s'il est analysé de manière isolée. L'exploitation de notre outil de visualisation (cf \secref{sec:outils_analyse}) a d'ailleurs mis en évidence graphiquement que ces erreurs locales se concentrent principalement aux frontières des segments, lors des transitions physiques entre deux types de données (cf. \figref{fig:viewer_multiple}, \figref{fig:viewer_error}, \figref{fig:viewer_hover} et \figref{fig:viewer_detail}).\\
 
-    Il est important de noter que cette robustesse a un coût. L'utilisation d'un \textit{stride} (pas) réduit pour multiplier les votes multiplie proportionnellement le temps d'inférence. Dans des grands volumes de données, ce compromis entre le temps d'analyse et la précision de la segmentation est un paramètre critique. Nos résultats suggèrent que le gain en fiabilité justifie cette latence, tout en ouvrant la porte à des optimisations futures sur le parallélisme de l'agrégation des votes.
+    Pour pallier cette limite, nous avons implémenté un mécanisme de vote pondéré afin de stabiliser les prédictions et d'augmenter la fiabilité de la classification des zones de mémoire. En confrontant plusieurs prédictions pour un même octet via des fenêtres glissantes (cf. \subsecref{subsec:overlapping}), nous avons observé une réduction des “artefacts de prédiction" (changements de classe abrupts et incohérents sur quelques octets). Cette approche agit comme un filtre passe-bas, éliminant le bruit haute fréquence dans les résultats pour ne conserver que les zones où le modèle maintient une confiance élevée et constante. Cette réduction des artefacts mène à une augmentation de l'accuracy de l'ordre de $[X\%]$ (cf. \tabref{tab:performances_vote_pondere}).\\
 
-    \section{Chiffrement et compression : l'entropie trompe le modèle}
-    L'analyse des erreurs de classification révèle une confusion récurente du modèle entre les segments de données chiffrés et compressés. Cette difficulté s'explique par la nature mathématique même des algorithmes utilisés dans le projet, tels que l'AES-256-CBC pour le chiffrement et zLib ou Gzip pour la compression.
+    Il est cependant nécessaire de nuancer cette robustesse par le coût computationnel associé. L'utilisation d'un \textit{stride} réduit pour multiplier les votes multiplie proportionnellement le temps d'inférence. Dans des grands volumes de données, ce compromis entre le temps d'analyse et la précision de la segmentation devient un paramètre critique. Si nos résultats suggèrent que le gain en fiabilité justifie cette latence, elle souligne un arbitrage nécessaire : l'inférence d'un modèle Transformer exige des ressources matérielles significatives (GPU) (cf \secref{sec:optimisation}), là où les approches conventionnelles basées sur des signatures statiques (magic bytes, headers de fichiers ou traces du noyau via des outils comme \textit{Volatility}) restent quasi instantanées et légères. Ces méthodes classiques conservent donc une utilité majeure en l'absence de matériel performant ou lors d'analyses où l'on recherche la rapidité brute.\\
 
-    \subsection{La convergence statistique des hautes entropies}
-    Le modèle \textit{Transformer} repose sur sa capacité à identifier des structures et des dépendances au sein des séquences d'octets. Or, l'objectif d'un algorithme de compression efficace est d'éliminer toute redondance, ce qui conduit à une distribution des octets proche d'un bruit blanc aléatoire, simulant ainsi une entropie maximale. Le chiffrement et la compression sont deux processus produisent des flux binaires dépourvus de motifs répétitifs exploitables par les mécanismes d'attention du modèle.
+    Toutefois, le projet R.A.I.D. démontre qu'une approche basée sur l'apprentissage profond offre certains résultats que les outils traditionnels pourraient peiner à atteindre. Les méthodes classiques échouent dès lors que les données sont fragmentées ou dépourvues de leurs en-têtes originaux, une situation pourtant fréquente au sein d'un dump RAM. De plus, les signatures statiques sont particulièrement vulnérables aux techniques d'obfuscation simples, où un changement mineur dans les premiers octets d'un fichier suffit à tromper un scanner. À l'inverse, l'utilisation du mécanisme d'attention (cf. \secref{sec:modele_classification}) permet au Transformer de s'affranchir des spécificités du système d'exploitation en cherchant à extraire du sens directement depuis le contenu. En pondérant l'importance de chaque octet dans son contexte global, la classification ne repose plus sur un point de passage unique et rigide, mais sur une compréhension diffuse du bloc de données de 1024 octets (cf. \secref{sec:decoupage_chunks}).\\
 
-    \subsection{Impact sur la précision de la segmentation}
-    Dans les résultats d'évaluation, cette confusion se traduit par des faux positifs où des flux compressés sont étiquetés comme \texttt{ENCRYPTED}. Les résultats montrent que même avec une validation par vote pondéré, le score de confiance reste souvent élevé pour ces deux catégories, car le modèle "est certain" de ne pas faire face à du texte ou des images structurées, mais ne possède pas de descripteurs sémantiques suffisants pour distinguer un flux compressé d'un flux chiffré.
+    Malgré cette capacité à capturer les motifs et l'organisation profonde des données (la structure d'un texte ou la distribution d'une image), l'analyse des erreurs de classification révèle une limite technique : la confusion récurrente du modèle entre les segments de données chiffrés et compressés (cf. \secref{fig:confusion_matrix_subclasses}). Cette difficulté s'explique par la nature mathématique même des algorithmes testés, tels que l'AES-256-CBC pour le chiffrement et zLib ou Gzip pour la compression (cf. \subsecref{subsec:collecte_donnees}). L'objectif d'un algorithme de compression efficace étant d'éliminer toute redondance, il conduit à une distribution des octets proche d'un bruit aléatoire, simulant ainsi une entropie maximale. Le chiffrement et la compression produisent alors des espaces binaires semblables, dépourvus de motifs répétitifs exploitables par les mécanismes d'attention. De plus, la fragmentation (cf \subsecref{subsec:creation_segment_ram}) inhérente à la mémoire vive prive souvent ces segments de leurs métadonnées ou headers spécifiques, empêchant le Transformer d'utiliser ces repères fixes pour lever l'ambiguïté.\\
 
-    \subsection{Limites de l'approche sémantique pure}
-    Cette problématique souligne une limite intrinsèque de l'apprentissage profond appliqué aux flux binaires bruts : sans la détection de signatures spécifiques que le projet cherche justement à éviter pour gagner en généricité, la distinction entre haute entropie "utile" (compression) et "intentionnelle" (chiffrement) demeure un défi ouvert. Pour les travaux futurs, l'intégration de métriques statistiques complémentaires, telles que des tests de distribution de fréquences bien plus fins au sein des couches du classifieur, pourrait offrir une piste pour séparer ces deux types de données
+    Dans les résultats d'évaluation, cette confusion entre les deux types se traduit par des faux positifs où des séquences compressées sont classées comme Chiffré. Même avec une validation par vote pondéré, le score de confiance reste élevé pour ces deux catégories : le modèle "est certain" de ne pas faire face à du texte ou des images, mais ne possède pas d'indices suffisants pour distinguer le chiffrement de la compression (cf. \subsecref{sec:performance_globales}). Cette problématique souligne un défi ouvert de l'apprentissage profond appliqué aux séquences binaires : la distinction entre haute entropie "utile" (compression) et "intentionnelle" (chiffrement).\\
 
+    Pour dépasser cette limite, l'intégration d'une surcouche via l'extraction de features statistiques, comme un test du \href{https://fr.wikipedia.org/wiki/Test_du_%CF%87%C2%B2}{Khi-deux ($\chi^2$)} ou une extension du contexte, constituerait une piste prometteuse. Nous ne sommes pas capables de prouver l'efficacité de ces deux approches par manque de ressources, mais nous les voyons comme de probables candidats à l'amélioration de cette distinction.\\
 
-    \subsection{Sémantique binaire {\small vs} Identification rigide}
-    Les méthodes classiques échouent lorsque les données sont fragmentées ou dépourvues de leurs en-têtes originaux, une situation fréquente au sein d'un dump RAM. Là où un outil statique verrait une suite d'octets incohérente, le modèle parvient à extraire une "signature statistique" du contenu. En apprenant la sémantique profonde des différents types de données (la structure d'un texte, la distribution d'une image compressée), le \textit{Transformer} identifie la nature de l'information même en l'absence de métadonnées explicites.
+    Au-delà de ces limites techniques, et bien que les résultats soient prometteurs, il est important de souligner que le modèle a été entraîné et évalué sur un jeu de données synthétique. Ce dernier s'efforce de reproduire la diversité d'un dump mémoire, mais il existe inévitablement de grands écarts avec la complexité d'une mémoire vive réelle, notamment au niveau de la fragmentation dynamique (cf \subsecref{subsec:creation_segment_ram}) et de la présence de formats ou de structures de données propriétaires liés aux systèmes d'exploitation. Si ces formats paraissent trop éloignés des motifs appris sur le corpus d'entraînement, leur non-exhaustivité influencera négativement les performances du classifieur. Cette dépendance à un dataset synthétique pose directement la question de la validité externe de nos résultats : les performances globales observées ne peuvent très probablement pas être calquées sur des scénarios réels dans des dumps de RAM véridiques, cela nécessiterait une phase de validation et de réentrainement au besoin.\\
 
-    \subsection{Résilience face à l'obfuscation}
-    Une limite majeure des signatures statiques réside dans leur vulnérabilité aux techniques d'obfuscation simples. Un changement mineur dans les premiers octets d'un fichier suffit à tromper un scanner traditionnel. À l'inverse, l'utilisation du mécanisme d'attention du \textit{Transformer} permet au modèle de pondérer l'importance de chaque octet dans son contexte global. Cette capacité rend le système beaucoup plus résilient : la classification ne repose pas sur un point de passage unique, mais sur une compréhension diffuse du bloc de données de \chunkSize octets.
+    Ces limites ouvrent néanmoins des perspectives majeures, à commencer par le passage à un apprentissage non supervisé. Actuellement, le système repose sur un entraînement supervisé à l'aide d'un générateur de datasets qui définit arbitrairement les classes de données. Cependant, la réalité d'un dump RAM système est bien plus complexe et hétérogène que les échantillons produits synthétiquement, un mode non supervisé permettrait au modèle d'apprendre directement les structures statistiques intrinsèques de la RAM sans nécessiter d'étiquetage préalable, facilitant ainsi la détection d'artefacts encore inconnus.\\
 
-    \subsection{Le coût de l'intelligence}
-    Il est toutefois nécessaire de nuancer cette supériorité par le coût computationnel associé. Si les signatures statiques sont quasi instantanées et légères, l'inférence d'un modèle \textit{Transformer} couplée à une stratégie de vote pondéré, exige des ressources matérielles significatives (GPU). Cette discussion souligne un arbitrage nécessaire : les méthodes classiques restent d'une utilité majeure en l'absence de matériel performant ou lors d'analyses ou l'on cherche la rapidité brute.
+    L'architecture Transformer de R.A.I.D. (cf \secref{sec:entrainement_validation}) est particulièrement adaptée à cette transition via des techniques de pré-entraînement similaires à celles utilisées dans les modèles de langage (type BERT). En masquant certains octets au sein d'une séquence et en demandant au modèle de les prédire (architecture decoder), le système développerait une compréhension profonde de la "syntaxe" binaire des différents types de données. Dans ce cadre, une erreur de prédiction élevée deviendrait un indicateur natif d'une zone à haute entropie (chiffrement), sans que le modèle ait besoin d'avoir "vu" des données chiffrées durant son entraînement.\\
 
-    \section{Limites}
-    \subsection{La généralisation face aux données réelles}
-    Bien que les résultats soient prometteurs, il est important de souligner que le modèle a été entraîné et évalué sur un jeu de données synthétique. Bien que ce dernier s'efforce de reproduire la diversité d'un dump mémoire, il existe inévitablement des écarts avec la complexité d'une mémoire vive réelle, notamment au niveau de la fragmentation dynamique et des structures de données propriétaire liées aux OS.
+    L'objectif final de cette perspective est de permettre au modèle de s'adapter dynamiquement à n'importe quel système d'exploitation ou architecture matérielle. En passant au non supervisé, R.A.I.D. ne chercherait plus à valider des catégories pré-définies, mais à segmenter la mémoire en zones de cohérence. Cette approche permettrait d'isoler avec une plus grande précision les zones de données volatiles, posant ainsi les bases d'une assistance automatisée capable de s'auto-ajuster à la spécificité de chaque dump RAM analysé, bien que cela reste hypothétique.\\
 
-    On peut aussi considérer que dans la RAM, la présence de formats propriétaires non inclus dans le dataset pourraient faire l'objet d'erreurs de classification si leur format paraît trop éloigné de la signature statistique des données présentes dans le corpus d'entraînement. La non exhaustivité des types présents dans notre dataset peut donc influencer négativement les performances de la classification du modèle.
+    Enfin, le projet R.A.I.D. a validé la capacité des Transformers à classifier des segments isolés, une étape suivante pourrait consister en la gestion de la fragmentation et la reconstruction logicielle des fichiers, un dump RAM n'étant pas une suite linéaire de fichiers, mais un agglomérat de blocs mémoires souvent éparpillés.\\
 
-    \subsection{Le choix de l'architecture \textit{Transformer}}
-    Le passage d'une analyse par signatures à une analyse par apprentissage profond a nécessité le choix d'une architecture capable de saisir la complexité sémantique des flux binaires. Si les réseaux de neurones récurrents (RNN ou LSTM) ont longtemps été la norme pour les données séquentielles, le choix d'un \textit{Transformer} pour le projet R.A.I.D. répond à des problématiques spécifiques à l'analyse de la mémoire vive.
-
-    \subsubsection{\textit{Multi-Head Attention} {\small vs} Dépendances séquentielles}
-    La principale limite des RNN réside dans leur nature séquentielle : ils traitent les octets l'un après l'autre, ce qui rend difficile la capture de relations à longue distance au sein d'un bloc de données. À l'inverse, le mécanisme d'attention multi-têtes permet au modèle d'analyser simultanément toutes les relations entre les octets d'une fenêtre de \chunkSize octets. Cette capacité est cruciale : un en-tête situé au début d'un segment peut avoir une influence sémantique directe sur des données situées bien plus loin. Là où un RNN aurait pu "oublier" le contexte initial, le Transformer maintient une vision globale et pondère l'importance de chaque zone du dump avec une précision accrue.
-
-    \subsubsection{L'importance de l'encodage positionnel}
-    Contrairement aux images ou au texte naturel, la structure d'un dump mémoire est strictement liée à l'adresse physique des données. L'absence de structure inhérente aux \textit{Transformers} (qui sont, par nature, invariants par permutation) a été compensée par l'implémentation d'un Positional Encoding. Cette composante n'est pas qu'un détail technique : elle permet au modèle de conserver la notion d'ordre et de distance entre les octets. Dans notre contexte, savoir qu'un octet spécifique se situe à une position relative précise par rapport à un autre est souvent le seul moyen de distinguer un motif structuré d'un flux aléatoire.
-
-    \subsubsection{Parallélisation et passage à l'échelle}
-    Enfin, un argument pragmatique a dicté ce choix : la performance. L'architecture \textit{Transformer} permet une parallélisation totale lors de l'entraînement et de l'inférence, contrairement aux RNN qui sont limités par leur récursivité. Étant donné la volumétrie des dumps RAM modernes (souvent supérieurs à 16 Go), l'utilisation des cœurs de calcul des GPU via une architecture \textit{Transformer} est la seule voie viable pour obtenir des temps d'analyse convenables.
-    
-    \section{Perspectives}
-    \subsection{Passage en apprentissage non supervisé}
-    Actuellement, le système repose sur un entraînement supervisé à l'aide d'un générateur de datasets qui définit arbitrairement les classes de données. Cependant, la réalité d'un dump RAM système est bien plus complexe et hétérogène que les échantillons produits synthétiquement. Un passage à l'apprentissage non supervisé permettrait au modèle d'apprendre directement les structures statistiques intrinsèques de la mémoire vive sans nécessiter d'étiquetage préalable, facilitant ainsi la détection d'artefacts encore inconnus.
-    
-    L'architecture \textit{Transformer} de R.A.I.D. est particulièrement adaptée à cette transition via des techniques de pré-entraînement similaires à celles utilisées dans les modèles de langage (type BERT). En masquant certains octets au sein d'une séquence et en demandant au modèle de les prédire (architecture decoder), le système développerait une compréhension profonde de la "syntaxe" binaire des différents types de données. Dans ce cadre, une erreur de prédiction élevée deviendrait un indicateur natif d'une zone à haute entropie (chiffrement), sans que le modèle ait besoin d'avoir "vu" des données chiffrées durant son entraînement.
-    
-    L'objectif final de cette perspective est de permettre au modèle de s'adapter dynamiquement à n'importe quel système d'exploitation ou architecture matérielle. En passant au non supervisé, R.A.I.D. ne chercherait plus à valider des catégories pré-définies, mais à segmenter la mémoire en zones de cohérence. Cette approche permettrait d'isoler avec une plus grande précision les zones de données volatiles, posant ainsi les bases d'une assistance automatisée capable de s'auto-ajuster à la spécificité de chaque dump RAM analysé, bien que cela reste hypothétique.
-
-    \subsection{Le défi de la fragmentation et de la reconstruction}
-    Si le projet R.A.I.D. a validé la capacité des \textit{Transformers} à classifier des segments isolés, une étape suivante pourrait consister en la gestion de la fragmentation et la reconstruction logicielle des fichiers. Un dump RAM n'est pas une suite linéaire de fichiers, mais un agglomérat de blocs mémoires souvent éparpillés. 
-
-    \subsubsection{De la segmentation locale à la vision globale}
-    Le modèle actuel travaille sur des fenêtres de \chunkSize octets (chunk\_size), ce qui lui permet d'identifier avec précision la nature d'un fragment (image, PDF, texte). Le défi est de déterminer si deux segments identifiés comme \texttt{IMAGE} et situés à des adresses distantes appartiennent au même objet binaire. L'utilisation du mécanisme d'attention pourrait être étendue pour comparer les "signatures sémantiques" de différents blocs afin de détecter des continuités logiques malgré la fragmentation physique.
-
-    \subsubsection{R.A.I.D. comme moteur de "File Carving" intelligent}
-    Les outils de \textit{file carving} traditionnels (Scalpel, Foremost ..) reposent sur la détection de structures rigides (en-têtes et pieds de fichiers). R.A.I.D. offre une perspective de "\textit{carving} sémantique" via : 
+    Le modèle actuel travaille sur des fenêtres de \chunkSize{} octets (chunk\_size) (cf. \secref{sec:decoupage_chunks}), ce qui lui permet d'identifier avec précision la nature d'un fragment (image, PDF, texte). L'étape suivante impose de déterminer si deux segments identifiés comme "IMAGE", mais situés à des adresses distantes, appartiennent au même objet binaire. L'utilisation du mécanisme d'attention pourrait ainsi être étendue pour comparer les similitudes entre différents blocs afin de détecter des continuités logiques malgré la fragmentation physique.
+    En se positionnant comme une brique de base pour les outils de \textit{file carving} intelligents, R.A.I.D. offrirait une perspective de "carving sémantique" face aux outils traditionnels (Scalpel, Foremost) limités par la disparition des en-têtes en RAM :
     \begin{itemize}
-        \item L'isolation des zones d'intérêt au milieu du bruit ou des données chiffrées, le modèle réduira drastiquement l'espace de recherche pour les algorithmes de reconstruction.
-        \\
-        \item La reconstruction sans en-tête, car le modèle a prouvé sa capacité à reconnaître des structures (comme des pixels bruts via \texttt{DECODED}) même lorsque les métadonnées du fichier original ont disparu de la RAM. Cela permettrait de récupérer des documents partiels là où les méthodes classiques échouent.
+        \item  D'une part, en isolant les zones d'intérêt au milieu du bruit ou des données chiffrées, le modèle réduirait drastiquement l'espace de recherche pour les algorithmes de reconstruction.
+        \item D'autre part, il permettrait une reconstruction sans en-tête en reconnaissant des structures (comme des pixels bruts) même lorsque les métadonnées originales ont été effacées, rendant possible la récupération de documents partiels là où les méthodes classiques échouent.
     \end{itemize}
 
-    \subsubsection{Vers une assistance à la reconstruction automatique}
     À terme, l'intégration de R.A.I.D. dans une chaîne de traitement automatisée permettrait de proposer une prévisualisation des fichiers fragmentés. En couplant la classification par octets avec des techniques de réassemblage basées sur la probabilité de transition entre les types de données, le projet pose les bases d'un outil capable de reconstituer des preuves volatiles (fragments de conversations, images de sessions) qui sont aujourd'hui souvent considérées comme perdues car trop déstructurées.
 
-
-    \chapter{Conclusion}
+    \chapter{Conclusion}\label{chap:conclusion}
     \annot{Pas touché, faut une problematique que tout lz monde soit d'accord}
 
-    Le projet R.A.I.D. (RAM Artificial Inspection Dump) a permis de démontrer l'efficacité des architectures \textit{Transformer} pour l'analyse automatisée de la mémoire vive, un domaine où la volumétrie et la fragmentation des données rendent les méthodes traditionnelles de moins en moins opérantes. En nous affranchissant des signatures statiques au profit d'une approche basée sur la compréhension statistique des flux binaires, nous avons développé un outil capable de segmenter un dump mémoire avec une précision de 88,79\%.
+    Le projet R.A.I.D. (RAM Artificial Inspection Dump) a permis de démontrer l'efficacité des architectures \textit{Transformer} pour l'analyse automatisée de la mémoire vive, un domaine où la volumétrie et la fragmentation des données sont potentiellement un obstacle pour les outils plus traditionnels. En nous affranchissant des signatures statiques au profit d'une approche basée sur la compréhension statistique des flux binaires, nous avons développé un outil capable de segmenter un dump mémoire avec une précision de $94.79\%$.\\
 
-    L'implémentation du modèle \texttt{BytesTransformerClassifier}, couplée à une couche de convolution locale et à un mécanisme de \textit{self-attention}, a prouvé sa capacité à identifier la nature profonde des données (texte, images, documents) même en l'absence de métadonnées ou d'en-têtes explicites. L'introduction du pipeline de vote pondéré a constitué une étape clé de notre méthodologie, permettant de stabiliser les prédictions et de réduire significativement le bruit de classification inhérent à l'analyse par fenêtres glissantes.
+    L'implémentation du modèle \texttt{BytesTransformerClassifier}, couplée à une couche de convolution locale et à un mécanisme de self-attention, a prouvé sa capacité à identifier la nature profonde des données (texte, images, documents) même en l'absence de métadonnées ou d'en-têtes explicites. L'introduction du pipeline de vote pondéré a constitué une étape clé de notre méthodologie, permettant de déstabiliser les prédictions et de réduire fictivement le bruit de classification inhérent à l'analyse par fenêtres glissantes.\\
 
-    Toutefois, ce projet a également mis en lumière des défis persistants, notamment la convergence statistique entre les données chiffrées et compressées. Cette limite souligne que si l'apprentissage profond excelle dans la reconnaissance de structures ordonnées, la distinction entre différentes formes de haute entropie nécessite encore l'intégration de métriques mathématiques plus fines ou de contextes d'analyse élargis.
+    Ces résultats apportent une première réponse positive à notre problématique : les méthodes profondes s'avèrent pleinement fonctionnelles et viables pour l'interprétation sémantique du binaire brut, et ce, malgré l'absence d'une comparaison exhaustive avec l'ensemble des approches traditionnelles. Le modèle \texttt{BytesTransformerClassifier} a prouvé sa capacité à extraire des structures ordonnées de manière autonome.\\
 
-    En conclusion, R.A.I.D. pose les jalons d'une nouvelle génération d'outils de forensique assistée par intelligence artificielle. Les perspectives ouvertes par ce travail qu'il s'agisse du passage à l'apprentissage non supervisé pour s'adapter dynamiquement à de nouveaux systèmes, ou du développement d'un moteur de \textit{file carving} sémantique suggèrent que l'IA peut transformer radicalement la manière dont les enquêteurs extraient des preuves volatiles d'un système. Ce projet démontre que, face à la complexité croissante des environnements numériques, la capacité des modèles de langage à "lire" le binaire brut constitue un atout majeur pour l'informatique légale de demain.
+    Toutefois, ce projet a également mis en lumière des défis persistants, notamment la convergence statistique entre les données chiffrées et compressées. Cette limite souligne que si l'apprentissage profond excelle dans la reconnaissance de structures ordonnées, la distinction entre différentes formes de haute entropie nécessite encore l'intégration de métriques mathématiques plus fines, de contextes d'analyse élargis ou d'opérations de fine-tuning.\\
 
+    En conclusion, R.A.I.D. offre une nouvelle base d'outils de forensique assistée par intelligence artificielle. Les perspectives ouvertes par ce travail, qu'il s'agisse du passage à l'apprentissage non supervisé pour s'adapter dynamiquement de nouveaux systèmes, ou du développement d'un moteur de file carving sémantique, suggèrent que l'IA peut transformer radicalement la manière dont les enquêteurs extraient des preuves volatiles d'un système. Ce projet démontre que, face à la complexité croissante des environnements numériques, la capacité des modèles de langage à "lire" le binaire brut constitue un atout majeur pour l'informatique légale de demain.
+
+    \chapter*{Répartition du travail}\label{chap:repartition_travail}
+    
 
     \printbibliography[title={Bibliographie}, heading=bibintoc]
 
